@@ -264,7 +264,7 @@ ssize_t getline_split_by(char **line_ptr, int *capacity_ptr, FILE * in, char tok
             capacity <<= 1;
             line = realloc(line, capacity);
         }
-        if (ch == token) {
+        if (ch == token || ch == '\n') {
             break;
         }
         ch = fgetc(in);
@@ -285,14 +285,16 @@ fclose(out);
 int isolateFunction(const char* inFile, const char * funcName, const char* writeFile) {
     FILE * in = fopen(inFile, "r");
     if (in == NULL) {
-        perror("input file parser error");
-        return 0;
+        fprintf(stderr, "input file parser error (%s): ", inFile);
+        perror("");
+        return -1;
     }
     FILE * out = fopen(writeFile, "w");
     if (out == NULL) {
-        perror("output file parser error");
+        fprintf(stderr, "output file parser error (%s): ", writeFile);
+        perror("");
         fclose(in);
-        return 0;
+        return -1;
     }
     int func_found = 0;
     int curly_brackets_count = 0;

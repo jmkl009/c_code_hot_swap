@@ -1,6 +1,8 @@
 //
 // Credit to resilar, gist: https://gist.github.com/resilar/24bb92087aaec5649c9a2afc0b4350c8
 //
+#ifndef PDLSYM
+#define PDLSYM
 
 #include <errno.h>
 #include <stdint.h>
@@ -9,6 +11,8 @@
 #include <string.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 struct elf {
@@ -44,7 +48,11 @@ static long readN(pid_t pid, const void *addr, void *buf, long len)
                 unsigned char buf[sizeof(long)];
             } data;
             data.value = ptrace(PTRACE_PEEKDATA, pid, (char *)addr - i, 0);
-            if (errno) return 0;
+            if (errno) {
+//                fprintf(stderr, "ptrace in readN failed\n");
+                perror("ptrace in readN failed:");
+                return 0;
+            }
             for (j = i; j < sizeof(long) && j-i < len; j++) {
                 ((char *)buf)[j-i] = data.buf[j];
             }
@@ -75,6 +83,7 @@ static long Ndaer(pid_t pid, const void *addr, void *buf, long len)
         }
         return 1;
     }
+    fprintf(stderr, "Ndaer failed\n");
     return 0;
 }
 
@@ -125,6 +134,23 @@ static int loadelf(pid_t pid, const char *base, struct elf *elf)
         elf->type = get16(elf, base + 0x10);
         elf->W = (2 << elf->class);
     } else {
+        fprintf(stderr, "bad elf:");
+//        if (!readN(pid, base, &magic, 4)) {
+//            fprintf(stderr, " !readN(pid, base, &magic, 4)");
+//        }
+        if (memcmp(&magic, "\x7F" "ELF", 4)) {
+            fprintf(stderr, " memcmp(&magic, \"\\x7F\" \"ELF\", 4)");
+        }
+        if (elf->class != 1 && elf->class != 2) {
+            fprintf(stderr, " elf->class != 1 or 2");
+        }
+        if (elf->data != 1 && elf->data != 2) {
+            fprintf(stderr, " elf->data != 1 or 2");
+        }
+        if (get8(pid, base+6) != 1) {
+            fprintf(stderr, " get8(pid, base+6) != 1");
+        }
+        fprintf(stderr, "\n");
         /* Bad ELF */
         return 0;
     }
@@ -150,14 +176,17 @@ static int loadelf(pid_t pid, const char *base, struct elf *elf)
         vaddr  = getW(elf, ph + elf->W*2);
         filesz = getW(elf, ph + elf->W*4);
         memsz  = getW(elf, ph + elf->W*5);
-        if (vaddr < offset || memsz < filesz)
+        if (vaddr < offset || memsz < filesz) {
+            fprintf(stderr, "vaddr < offset || memsz < filesz\n");
             return 0;
+        }
 
         if (phtype == 1) { /* PT_LOAD */
             if (elf->type == 2) { /* ET_EXEC */
                 if (vaddr - offset < elf->base) {
                     /* this is not the lowest base of the ELF */
                     errno = EFAULT;
+                    perror("Not the lowest base of the ELF:");
                     return 0;
                 }
             }
@@ -184,6 +213,12 @@ static int loadelf(pid_t pid, const char *base, struct elf *elf)
         }
     }
 
+    fprintf(stderr, "loads:%d\n",  loads);
+    fprintf(stderr, "elf->strtab:%p\n",  elf->strtab);
+    fprintf(stderr, "elf->strsz :%p\n", elf->strsz );
+    fprintf(stderr, "elf->symtab:%p\n", elf->symtab);
+    fprintf(stderr, "elf->syment:%p\n", elf->syment);
+
     return loads && elf->strtab && elf->strsz && elf->symtab && elf->syment;
 }
 
@@ -199,6 +234,7 @@ int elf_sym_iter(struct elf *elf, int i, uint32_t *stridx, uintptr_t *value)
             return 1;
         }
     }
+    fprintf(stderr, "elf sym iter reaches the end\n");
     return 0;
 }
 
@@ -210,6 +246,7 @@ void *pdlsym(pid_t pid, void *base, const char *symbol)
         uint32_t stridx;
         uintptr_t value;
         const char *pstrtab = (char *)elf.strtab;
+        fprintf(stderr, "elf.base:%p\n", elf.base);
         if (elf.strtab < elf.base)
             pstrtab += elf.base;
         for (i = 0; elf_sym_iter(&elf, i, &stridx, &value); i++) {
@@ -220,8 +257,15 @@ void *pdlsym(pid_t pid, void *base, const char *symbol)
                     if (!symbol[j])
                         return (void *)value;
                 }
+                for (j = 0; stridx+j < elf.strsz; j++) {
+                    printf("%c", (char)get8(pid, pstrtab + stridx+j));
+                }
+                printf("\n");
             }
         }
     }
+
     return NULL;
 }
+
+#endif
