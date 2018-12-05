@@ -17,6 +17,24 @@
 #define INTEL_INT3_INSTRUCTION 0xcc
 
 /*
+ * get_filename_from_path()
+ *
+ * Given an absolute path to a file, return the pointer to the start of the
+ * filename in the path
+ *
+ */
+char *get_filename_from_path(char *filePath) {
+  char *currPtr = filePath;
+  while (*filePath != '\0') {
+    if (*filePath == '/') {
+      currPtr = filePath + 1;
+    }
+    filePath ++;
+  }
+  return currPtr;
+}
+
+/*
  * findProcessByName()
  *
  * Given the name of a process, try to find its PID by searching through /proc
@@ -52,7 +70,7 @@ pid_t findProcessByName(char* processName)
             pid_t pid = atoi(procDirs->d_name);
 
             int exePathLen = 10 + strlen(procDirs->d_name) + 1;
-            char* exePath = malloc(exePathLen * sizeof(char));
+            char* exePath = (char *)malloc(exePathLen * sizeof(char));
 
             if(exePath == NULL)
             {
@@ -62,7 +80,7 @@ pid_t findProcessByName(char* processName)
             sprintf(exePath, "/proc/%s/exe", procDirs->d_name);
             exePath[exePathLen-1] = '\0';
 
-            char* exeBuf = malloc(PATH_MAX * sizeof(char));
+            char* exeBuf = (char *)malloc(PATH_MAX * sizeof(char));
             if(exeBuf == NULL)
             {
                 free(exePath);
@@ -202,7 +220,7 @@ long getlibcaddr(pid_t pid)
  *
  */
 
-void * checkloaded(pid_t pid, char* libname, const char *symbol)
+void * checkloaded(pid_t pid, char* libname, char *symbol)
 {
     FILE *fp;
     char filename[30];
@@ -271,7 +289,7 @@ long getFunctionAddress(char* funcName)
 
 unsigned char* findRet(void* endAddr)
 {
-    unsigned char* retInstAddr = endAddr;
+    unsigned char* retInstAddr = (unsigned char *)endAddr;
     while(*retInstAddr != INTEL_RET_INSTRUCTION)
     {
         retInstAddr--;

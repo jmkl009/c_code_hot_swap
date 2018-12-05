@@ -94,7 +94,7 @@ void ptrace_getregs(pid_t target, struct REG_TYPE* regs)
 
 void ptrace_cont(pid_t target)
 {
-	struct timespec* sleeptime = malloc(sizeof(struct timespec));
+	struct timespec* sleeptime = (struct timespec*)malloc(sizeof(struct timespec));
 
 	sleeptime->tv_sec = 0;
 	sleeptime->tv_nsec = 5000000;
@@ -257,10 +257,9 @@ void checktargetsig(int pid)
 }
 
 /*
- * restoreStateAndDetach()
+ * restoreStates()
  *
- * Once we're done debugging a target process, restore the process' backed-up
- * data and register state and let it go on its merry way.
+ * restore the process' backed-up data and register state.
  *
  * args:
  * - pid_t target: pid of the target process
@@ -272,9 +271,8 @@ void checktargetsig(int pid)
  *
  */
 
-void restoreStateAndDetach(pid_t target, unsigned long addr, void* backup, int datasize, struct REG_TYPE oldregs)
+void restoreStates(pid_t target, unsigned long addr, void* backup, int datasize, struct REG_TYPE oldregs)
 {
 	ptrace_write(target, addr, backup, datasize);
 	ptrace_setregs(target, &oldregs);
-	ptrace_detach(target);
 }

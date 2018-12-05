@@ -71,7 +71,7 @@ symaddr_t bin_dlsym(char * bin_name, char *symbol) {
         exit(-1);
     }
 
-    h.mem = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    h.mem = (uint8_t *)mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (h.mem == MAP_FAILED) {
         perror("mmap");
         exit(-1);
