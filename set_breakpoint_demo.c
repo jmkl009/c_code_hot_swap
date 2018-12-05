@@ -1,8 +1,19 @@
 /* Code sample: manual setting of a breakpoint, using a ptrace*/
 /**
  * Some Notes for MnCu:
+ * 
  *  x86 is little-endian byte order
  *      - starting from least significant byte
+ * 
+ *  PTRACE-PEEKDATA / PTRACE-PEEKTEXT
+ *      - reads the data/code section of the child
+ *      - Linux does not have seperate text and data address space, same virtual address
+ *        space
+ * 
+ *  PTRACE-PEEKUSER
+ *      - reads the contents of the child's USER area which holds contents of registers
+ *        and other info
+ *      - the component "regs" can be read
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,13 +98,35 @@ void run_debugger(pid_t child_pid){
     */
     ptrace(PTRACE_POKETEXT, child_pid, (void*)addr, (void*)data);
     regs.rip -= 1; // rip contains the address of the next instruction
-    printf("where is regs.rip? It is located at 0x%llx\n", addr);
+    unsigned long long int another_readback_data = ptrace(PTRACE_PEEKTEXT, child_pid, (void*)addr, 0);
+    printf("After trap, data at 0x%llx: 0x%llx\n", addr, another_readback_data);
+    //printf("where is regs.rip? It is located at 0x%llx\n", addr);
     ptrace(PTRACE_SETREGS, child_pid, 0, &regs);
+
+     /* Obtain and show child's instruction pointer */
+    ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
+    // reg.rip and rax instead of ip and eax
+    printf("Child started.rip = 0x%llx\n", regs.rip); 
+    /* Look at the word at the address we're interested in */
+    addr = 0x4005a8;
+    data = ptrace(PTRACE_PEEKTEXT, child_pid, (void *)addr, 0);
+    printf("Original data at 0x%llx: 0x%llx\n", addr, data);
+
+    /* Write the trap instruction 'int 3' into the address */
+    data_with_trap = (data & 0xFFFFFFFFFFFFFF00) | 0xCC;
+    //printf("data_with_trap is 0x%llx\n", data_with_trap); // debug
+    ptrace(PTRACE_POKETEXT, child_pid, (void*)addr, (void*)data_with_trap);
+
+    /* See what's there again... */
+    readback_data = ptrace(PTRACE_PEEKTEXT, child_pid, (void*)addr, 0);
+    printf("After trap, data at 0x%llx: 0x%llx\n", addr, readback_data);   
+
 
     /* The child can continue running now */
     ptrace(PTRACE_CONT, child_pid, 0, 0);
 
     wait(&wait_status);
+
 
     if (WIFEXITED(wait_status)) {
         printf("Child exited\n");
@@ -128,7 +161,7 @@ int main(int argc, char** argv){
         run_target(argv[1]);
     }else{
         perror("fork failed\n");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 
 
