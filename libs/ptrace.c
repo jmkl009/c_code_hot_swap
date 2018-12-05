@@ -102,6 +102,7 @@ void ptrace_cont(pid_t target)
 	if(ptrace(PTRACE_CONT, target, NULL, NULL) == -1)
 	{
 		fprintf(stderr, "ptrace(PTRACE_CONT) failed\n");
+		free(sleeptime);
 		exit(1);
 	}
 
@@ -109,6 +110,7 @@ void ptrace_cont(pid_t target)
 
 	// make sure the target process received SIGTRAP after stopping.
 	checktargetsig(target);
+	free(sleeptime);
 }
 
 /*

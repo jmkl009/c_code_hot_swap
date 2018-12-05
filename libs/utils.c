@@ -207,16 +207,17 @@ void * checkloaded(pid_t pid, char* libname, const char *symbol)
     FILE *fp;
     char filename[30];
     char line[850];
-    long addr;
+    long section_start_addr;
     sprintf(filename, "/proc/%d/maps", pid);
     fp = fopen(filename, "r");
     if(fp == NULL)
         exit(1);
     while(fgets(line, 850, fp) != NULL) {
-        sscanf(line, "%lx-%*lx %*s %*s %*s %*d", &addr);
+        sscanf(line, "%lx-%*lx %*s %*s %*s %*d", &section_start_addr);
         if(strstr(line, libname) != NULL) {
             fclose(fp);
-            return addr + bin_dlsym(libname, symbol);
+            symaddr_t symaddr = bin_dlsym(libname, symbol);
+            return section_start_addr + symaddr.addr;
         }
     }
     fclose(fp);

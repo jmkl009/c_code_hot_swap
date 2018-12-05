@@ -31,6 +31,11 @@ typedef struct handle {
     char *exec;
 } handle_t;
 
+typedef struct symaddr {
+    void * addr;
+    uint16_t type;
+} symaddr_t;
+
 Elf64_Addr lookup_symbol(handle_t *h, const char *symname)
 {
     int i, j;
@@ -49,7 +54,7 @@ Elf64_Addr lookup_symbol(handle_t *h, const char *symname)
     return 0;
 }
 
-void * bin_dlsym(const char * bin_name, const char *symbol) {
+symaddr_t bin_dlsym(char * bin_name, char *symbol) {
     int fd;
     handle_t h;
     struct stat st;
@@ -93,7 +98,7 @@ void * bin_dlsym(const char * bin_name, const char *symbol) {
 
     close(fd);
 
-    return (void *)h.symaddr;
+    return (symaddr_t){.addr = (void *)h.symaddr, .type = h.ehdr->e_type};
 }
 
 #endif
