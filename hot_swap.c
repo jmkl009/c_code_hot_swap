@@ -305,7 +305,7 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     void * loaded_func_addr = checkloaded(target, shared_obj_real_path, funcname);
     if(loaded_func_addr) {
         printf("\"%s\" Successfully injected.\n", shared_obj_real_path);
-        printf("Resolving symbols...\n", shared_obj_real_path);
+        printf("Resolving symbols...\n");
 //        memcpy(old_func, "\x48\xb8", 2 * sizeof(char));
 //        memcpy(old_func + 0x02, &new_func, sizeof(void *));
 //        memcpy(old_func + 0x0a, "\xff\xe0", 2 * sizeof(char));
@@ -500,7 +500,7 @@ int main(int argc, char* argv[]) {
            "or else the code injection may not work "
            "if you call statically compiled functions.\n");
 
-    int status = mkdir("./tmp", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    mkdir("./tmp", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
      // if (status == -1) {
      //     fprintf(stderr, "Making directory failed\n");
      //     exit(1);

@@ -35,7 +35,7 @@ int resolveDefine(FILE * inFile, FILE * outFile) {
 
     //There are more lines for it
     char * new_line = NULL;
-    size_t capacity = 0;
+    int capacity = 0;
     unsigned nbytes = getline_split_by(&new_line, &capacity, inFile, '\r');
     while (nbytes > 0) {
         fwrite(new_line, nbytes, 1, outFile);
@@ -49,7 +49,7 @@ int resolveDefine(FILE * inFile, FILE * outFile) {
     return nbytes;
 }
 
-int resolveInclude(char * const searchStart, FILE *outFile, char *inFile) {
+int resolveInclude(char * const searchStart, FILE *outFile) {
     //ASSUMPTION: the #include never uses absolute paths
     char *search_ptr = searchStart;
     while (!isMeaningfulCharacter(*search_ptr)) {
@@ -199,7 +199,7 @@ char * concatenate(char *big, char *small) {
     return big;
 }
 
-char *strstr_strict(char *big, char *small) {
+char *strstr_strict(const char *big, const char *small) {
     char *ptr = strstr(big, small);
     if (ptr) {
         size_t small_size = strlen(small);
@@ -237,7 +237,7 @@ int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE 
     if (type == UNDEFINED) { //The end of line is reached
         // No semicolon so we search on
         char * next_line = NULL;
-        size_t capacity = 0;
+        int capacity = 0;
         getline_split_by(&next_line, &capacity, in, '\r');
         int result = checkAndWriteFunc(next_line, funcName, in, out, concatenate(prependage, next_line));
         free(next_line);
@@ -248,7 +248,7 @@ int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE 
         && ((prependage && strstr_strict(prependage, funcName)) || strstr_strict(start_line, funcName))) {
         //May be forward declaration, so we try to seek a ';' before '{' to determine what is the case
         char * line = start_line;
-        size_t capacity = 0;
+        int capacity = 0;
         ssize_t nbytes = strlen(line);
         do {
             int result = curly_bracket_before_semicolon(line);
@@ -357,14 +357,14 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
     int curly_brackets_count = 0;
 
     char * line = NULL;
-    size_t capacity = 0;
+    int capacity = 0;
 
     ssize_t nbytes = getline_split_by(&line, &capacity, in, '\r');
     while (nbytes > 0) { //Simply write every line before the target function
 //        line[nbytes - 1] = '\0';
         if (curly_brackets_count == 0) {
             const unsigned firstMeaningfulCharacterIdx = findFirstMeaningfulCharacterIdx(line);
-            const char * meaningfulLineStart = line + firstMeaningfulCharacterIdx;
+            char * meaningfulLineStart = line + firstMeaningfulCharacterIdx;
             const ssize_t write_bytes = nbytes - firstMeaningfulCharacterIdx;
             if (*meaningfulLineStart == '#') { //A compiler directive
                 if (str_contains_at_beginning(meaningfulLineStart + 1, DEFINE)) { //The directive is a define
@@ -375,7 +375,7 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
                 } else if (str_contains_at_beginning(meaningfulLineStart + 1, INCLUDE)) {
                     //sizeof "#include" = 8
                     fwrite(meaningfulLineStart, 8, 1, out);
-                    resolveInclude(meaningfulLineStart + 8, out, inFile);
+                    resolveInclude(meaningfulLineStart + 8, out);
                 }
                 nbytes = getline_split_by(&line, &capacity, in, '\r');
                 continue;
