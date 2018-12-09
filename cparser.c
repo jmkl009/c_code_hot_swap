@@ -324,6 +324,9 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
         return -1;
     }
 
+    char cwd[PATH_MAX];
+    getcwd(cwd, sizeof(cwd));
+
     //Change directory into the same as inFile to make things a big easy
     char *full_path = realpath(inFile, NULL);
     //Tokenize full_path to get parent_path
@@ -407,6 +410,6 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
     fclose(in);
     fclose(out);
 //    CLEAN_UP
-
+    chdir(cwd);
     return func_found;
 }

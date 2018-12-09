@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 int isolateFunction(const char* inFile, const char * funcName, const char* writeFile);
 
