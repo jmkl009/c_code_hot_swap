@@ -199,6 +199,18 @@ char * concatenate(char *big, char *small) {
     return big;
 }
 
+char *strstr_strict(char *big, char *small) {
+    char *ptr = strstr(big, small);
+    if (ptr) {
+        size_t small_size = strlen(small);
+        char ch_after = *(ptr + small_size);
+        if (isalpha(ch_after) || ch_after == '-' || ch_after == '_') {
+            ptr = NULL;
+        }
+    }
+    return ptr;
+}
+
 #define WRITTEN 1
 int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE * out, char * prependage) {
 //    char * funcName_start = strstr(start_line, funcName);
@@ -232,7 +244,8 @@ int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE 
         return result;
     }
 
-    if (type == LEFT_PARENTHESIS_FOUND && ((prependage && strstr(prependage, funcName)) || strstr(start_line, funcName))) {
+    if (type == LEFT_PARENTHESIS_FOUND
+        && ((prependage && strstr_strict(prependage, funcName)) || strstr_strict(start_line, funcName))) {
         //May be forward declaration, so we try to seek a ';' before '{' to determine what is the case
         char * line = start_line;
         size_t capacity = 0;
@@ -375,9 +388,9 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
                     nbytes = getline_split_by(&line, &capacity, in, '\r');
                 }  while (line[findFirstMeaningfulCharacterIdx(line)] == '*');
                 continue;
-            } else if (str_contains_at_beginning(meaningfulLineStart, "typedef")
+            } else if ((str_contains_at_beginning(meaningfulLineStart, "typedef")
                        || str_contains_at_beginning(meaningfulLineStart, "enum")
-                        || str_contains_at_beginning(meaningfulLineStart, "struct")) {
+                        || str_contains_at_beginning(meaningfulLineStart, "struct")) && strstr(meaningfulLineStart, "(") == NULL) {
                 //Write the whole thing until a semicolon is met.
                 bool curlyBracketFound = false;
                 do {
