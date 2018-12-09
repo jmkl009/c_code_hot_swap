@@ -37,6 +37,9 @@ void injectSharedLibrary(long mallocaddr, long dlopenaddr, long freeaddr)
 
     // save addresses of free() and __libc_dlopen_mode() on the stack for later use
     asm(
+    //Protection against placing the instruction pointer rip at wrong place.
+    "nop \n"
+    "nop \n"
     // rsi is going to contain the address of free(). it's going to get wiped
     // out by the call to malloc(), so save it on the stack for later
     "push %rsi \n"
@@ -149,6 +152,9 @@ void ejectSharedLibrary(long dlcloseAddr, unsigned long long handle)
 
     // call __libc_dlclose() from within the target process
     asm(
+    //Protection against placing the instruction pointer rip at wrong place.
+    "nop \n"
+    "nop \n"
     // save previous value of r9, because we're going to use it to call __libc_dlclose()
     "push %r9 \n"
     // now move the address of __libc_dlclose() into r9
