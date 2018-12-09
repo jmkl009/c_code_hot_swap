@@ -369,7 +369,9 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
             if (*meaningfulLineStart == '#') { //A compiler directive
                 if (str_contains_at_beginning(meaningfulLineStart + 1, DEFINE)) { //The directive is a define
                     fwrite(meaningfulLineStart, write_bytes, 1, out);
-                    resolveDefine(in, out);
+                    if (back_slash_exists(meaningfulLineStart)) {
+                        resolveDefine(in, out);
+                    }
                 } else if (str_contains_at_beginning(meaningfulLineStart + 1, INCLUDE)) {
                     //sizeof "#include" = 8
                     fwrite(meaningfulLineStart, 8, 1, out);
@@ -388,9 +390,9 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
                     nbytes = getline_split_by(&line, &capacity, in, '\r');
                 }  while (line[findFirstMeaningfulCharacterIdx(line)] == '*');
                 continue;
-            } else if ((str_contains_at_beginning(meaningfulLineStart, "typedef")
+            } else if (str_contains_at_beginning(meaningfulLineStart, "typedef")
                        || str_contains_at_beginning(meaningfulLineStart, "enum")
-                        || str_contains_at_beginning(meaningfulLineStart, "struct")) && strstr(meaningfulLineStart, "(") == NULL) {
+                        || (str_contains_at_beginning(meaningfulLineStart, "struct") && strstr(meaningfulLineStart, "(") == NULL)) {
                 //Write the whole thing until a semicolon is met.
                 bool curlyBracketFound = false;
                 do {
