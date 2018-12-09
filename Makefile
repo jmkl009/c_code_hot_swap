@@ -17,8 +17,8 @@ release: $(EXE)
 $(EXE): hot_swap.o cparser.o
 	$(LD) $^ -o $(EXE) $(LDFLAGS)
 
-hot_swap.o:
+hot_swap.o: hot_swap.c
 	$(CC) $(CFLAGS_RELEASE) -c hot_swap.c
 
-cparser.o:
+cparser.o: cparser.c
 	$(CC) $(CFLAGS_RELEASE) -c cparser.c

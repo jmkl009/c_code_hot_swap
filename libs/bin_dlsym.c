@@ -45,7 +45,7 @@ Elf64_Addr lookup_symbol(handle_t *h, const char *symname)
         if (h->shdr[i].sh_type == SHT_SYMTAB) {
             strtab = (char *)&h->mem[h->shdr[h->shdr[i].sh_link].sh_offset];
             symtab = (Elf64_Sym *)&h->mem[h->shdr[i].sh_offset];
-            for (j = 0; j < h->shdr[i].sh_size / sizeof(Elf64_Sym); j++, symtab++) {
+            for (j = 0; (unsigned)j < h->shdr[i].sh_size / sizeof(Elf64_Sym); j++, symtab++) {
                 if(strcmp(&strtab[symtab->st_name], symname) == 0)
                     return (symtab->st_value);
             }
