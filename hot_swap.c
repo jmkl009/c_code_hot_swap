@@ -8,7 +8,6 @@
 #include <wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
 #define FUNC_NAME_MAX (1024)
 
 /**
@@ -242,9 +241,9 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
 
     // copy injectSharedLibrary()'s code to the target address inside the
     // target process' address space.
-    printf("Injecting malloc, free, and dlopen calls...");
+    printf("Injecting malloc, free, and dlopen calls...\n");
     ptrace_write(target, freeSpaceAddr, newcode, injectSharedLibrary_size);
-    printf("Finished with the injection of the 3 calls.");
+    printf("Finished with the injection of the 3 calls.\n");
 
     // now that the new code is in place, let the target run our injected
     // code.
@@ -544,6 +543,6 @@ int main(int argc, char* argv[]) {
       exit(1);
     }
     // fprintf(stderr, "libAddr: %p\n", libAddr);
-    pdlclose(target, libAddr, targetDlcloseAddr);
+//    pdlclose(target, libAddr, targetDlcloseAddr);
     ptrace_detach(target);
 }
