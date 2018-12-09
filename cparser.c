@@ -2,14 +2,11 @@
 // Created by WangJingjin on 2018/10/25.
 //
 #include "cparser.h"
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-#include <stdlib.h>
 
 #define isMeaningfulCharacter(ch) ((ch) >= 33 && (ch) <= 126)
 
 static const char * const DEFINE = "define";
+static const char * const INCLUDE = "include";
 
 ssize_t getline_split_by(char **line_ptr, int *capacity_ptr, FILE * in, char token);
 
@@ -50,6 +47,33 @@ int resolveDefine(FILE * inFile, FILE * outFile) {
 
     free(new_line);
     return nbytes;
+}
+
+int resolveInclude(char * const searchStart, FILE *outFile, char *inFile) {
+    //ASSUMPTION: the #include never uses absolute paths
+    char *search_ptr = searchStart;
+    while (!isMeaningfulCharacter(*search_ptr)) {
+        search_ptr++;
+    }
+
+    if (*search_ptr == '<') { //No need for parent path
+        fwrite(searchStart, strlen(searchStart), 1, outFile);
+    } else if (*search_ptr == '"') {
+        char *right_bound = strstr(search_ptr + 1, "\"");
+
+        *right_bound = '\0';
+        char *full_library_path = realpath(search_ptr + 1, NULL);
+
+        fwrite(" \"", 2, 1, outFile);
+        fwrite(full_library_path, strlen(full_library_path), 1, outFile);
+        *right_bound = '"';
+
+        free(full_library_path);
+
+        fwrite(right_bound, strlen(right_bound), 1, outFile);
+    }
+
+    return 0;
 }
 
 char * findLeftParenthesis(char *lineptr) {
@@ -189,7 +213,8 @@ int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE 
         return 0;
     }
 
-    if (type == SEMICOLON_FOUND) {
+    if (type == SEMICOLON_FOUND) { //Insert extern
+        fwrite("extern ", 7, 1, out);
         fwrite(start_line, new_line_ptr - start_line, 1, out);
         fwrite("\r", 1, 1, out); //Insert return to the end of an instruction
         return checkAndWriteFunc(new_line_ptr + findFirstMeaningfulCharacterIdx(new_line_ptr), funcName, in, out, NULL);
@@ -296,6 +321,20 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
         fclose(in);
         return -1;
     }
+
+    //Change directory into the same as inFile to make things a big easy
+    char *full_path = realpath(inFile, NULL);
+    //Tokenize full_path to get parent_path
+    size_t end_idx = strlen(full_path) - 1;
+    while (full_path[end_idx] != '/') {
+        end_idx--;
+    }
+    full_path[end_idx] = '\0';
+    char *parent_path = full_path;
+    chdir(parent_path);
+    //Also change inFile so that inFile still refers to the right place.
+    inFile = full_path + end_idx + 1;
+
     int func_found = 0;
     int curly_brackets_count = 0;
 
@@ -305,7 +344,7 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
     ssize_t nbytes = getline_split_by(&line, &capacity, in, '\r');
     while (nbytes > 0) { //Simply write every line before the target function
 //        line[nbytes - 1] = '\0';
-        if (!curly_brackets_count) {
+        if (curly_brackets_count == 0) {
             const unsigned firstMeaningfulCharacterIdx = findFirstMeaningfulCharacterIdx(line);
             const char * meaningfulLineStart = line + firstMeaningfulCharacterIdx;
             const ssize_t write_bytes = nbytes - firstMeaningfulCharacterIdx;
@@ -313,12 +352,37 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
                 if (str_contains_at_beginning(meaningfulLineStart + 1, DEFINE)) { //The directive is a define
                     fwrite(meaningfulLineStart, write_bytes, 1, out);
                     resolveDefine(in, out);
+                } else if (str_contains_at_beginning(meaningfulLineStart + 1, INCLUDE)) {
+                    //sizeof "#include" = 8
+                    fwrite(meaningfulLineStart, 8, 1, out);
+                    resolveInclude(meaningfulLineStart + 8, out, inFile);
                 }
                 nbytes = getline_split_by(&line, &capacity, in, '\r');
                 continue;
             }
 
             if (str_contains_at_beginning(meaningfulLineStart, "//")) { // A comment
+                nbytes = getline_split_by(&line, &capacity, in, '\r');
+                continue;
+            } else if (str_contains_at_beginning(meaningfulLineStart, "/*")) { // Also a comment
+                //Skip all the comments
+                do {
+                    nbytes = getline_split_by(&line, &capacity, in, '\r');
+                }  while (line[findFirstMeaningfulCharacterIdx(line)] == '*');
+                continue;
+            } else if (str_contains_at_beginning(meaningfulLineStart, "typedef")
+                       || str_contains_at_beginning(meaningfulLineStart, "enum")
+                        || str_contains_at_beginning(meaningfulLineStart, "struct")) {
+                //Write the whole thing until a semicolon is met.
+                bool curlyBracketFound = false;
+                do {
+                    fwrite(meaningfulLineStart, strlen(meaningfulLineStart), 1, out);
+                    nbytes = getline_split_by(&line, &capacity, in, '\r');
+                    if(!curlyBracketFound && strstr(meaningfulLineStart, "}")) {
+                        curlyBracketFound = true;
+                    }
+                } while (!(curlyBracketFound && strstr(meaningfulLineStart, ";"))); //A curly bracket before semicolon denotes the end.
+                fwrite(meaningfulLineStart, strlen(meaningfulLineStart), 1, out);
                 nbytes = getline_split_by(&line, &capacity, in, '\r');
                 continue;
             }
