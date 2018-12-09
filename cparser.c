@@ -214,9 +214,11 @@ int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE 
     }
 
     if (type == SEMICOLON_FOUND) { //Insert extern
-        fwrite("extern ", 7, 1, out);
-        fwrite(start_line, new_line_ptr - start_line, 1, out);
-        fwrite("\r", 1, 1, out); //Insert return to the end of an instruction
+        if (!strstr(start_line, "static")) {
+            fwrite("extern ", 7, 1, out);
+            fwrite(start_line, new_line_ptr - start_line, 1, out);
+            fwrite("\r", 1, 1, out); //Insert return to the end of an instruction
+        }
         return checkAndWriteFunc(new_line_ptr + findFirstMeaningfulCharacterIdx(new_line_ptr), funcName, in, out, NULL);
     }
 
