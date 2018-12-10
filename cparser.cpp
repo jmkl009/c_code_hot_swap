@@ -1,7 +1,7 @@
 //
 // Created by WangJingjin on 2018/10/25.
 //
-#include "cparser.h"
+#include "cparser.hpp"
 
 #define isMeaningfulCharacter(ch) ((ch) >= 33 && (ch) <= 126)
 
@@ -193,13 +193,13 @@ char * concatenate(char *big, char *small) {
     if (big == NULL) {
         big = strdup(small);
     } else {
-        big = realloc(big, strlen(big) + strlen(small) + 1);
+        big = (char *)realloc(big, strlen(big) + strlen(small) + 1);
         strcat(big, small);
     }
     return big;
 }
 
-char *strstr_strict(const char *big, const char *small) {
+char *strstr_strict(char *big, char *small) {
     char *ptr = strstr(big, small);
     if (ptr) {
         size_t small_size = strlen(small);
@@ -212,7 +212,7 @@ char *strstr_strict(const char *big, const char *small) {
 }
 
 #define WRITTEN 1
-int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE * out, char * prependage) {
+int checkAndWriteFunc(char * start_line, char * funcName, FILE * in, FILE * out, char * prependage) {
 //    char * funcName_start = strstr(start_line, funcName);
 //    if (!funcName_start) {
 //        return 0;
@@ -291,7 +291,7 @@ int checkAndWriteFunc(char * start_line, const char * funcName, FILE * in, FILE 
 #define INITIAL_CAPACITY 1024
 ssize_t getline_split_by(char **line_ptr, int *capacity_ptr, FILE * in, char token) {
     int capacity = *capacity_ptr ? *capacity_ptr : INITIAL_CAPACITY;
-    char * line = *line_ptr ? *line_ptr : malloc(INITIAL_CAPACITY);
+    char * line = *line_ptr ? *line_ptr : (char *)malloc(INITIAL_CAPACITY);
     if (feof(in)) {
         return -1;
     }
@@ -302,7 +302,7 @@ ssize_t getline_split_by(char **line_ptr, int *capacity_ptr, FILE * in, char tok
         bytesRead ++;
         if (bytesRead == capacity) {
             capacity <<= 1;
-            line = realloc(line, capacity);
+            line = (char *)realloc(line, capacity);
         }
         if (ch == token || ch == '\n') {
             break;
@@ -321,7 +321,7 @@ ssize_t getline_split_by(char **line_ptr, int *capacity_ptr, FILE * in, char tok
 free(line);\
 fclose(in);\
 fclose(out);
-int isolateFunction(const char* inFile, const char * funcName, const char* writeFile) {
+int isolateFunction(const char* inFile, char * funcName, const char* writeFile) {
     FILE * in = fopen(inFile, "r");
     if (in == NULL) {
         fprintf(stderr, "input file parser error (%s): ", inFile);

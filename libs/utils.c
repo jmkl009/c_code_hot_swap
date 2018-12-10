@@ -5,16 +5,7 @@
 #ifndef HOT_SWAP_UTILS_H
 #define HOT_SWAP_UTILS_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <dirent.h>
-#include <string.h>
-#include <unistd.h>
-#include <dlfcn.h>
-#include "bin_dlsym.c"
-
-#define INTEL_RET_INSTRUCTION 0xc3
-#define INTEL_INT3_INSTRUCTION 0xcc
+#include "utils.h"
 
 /*
  * get_filename_from_path()
@@ -234,7 +225,8 @@ void * checkloaded(pid_t pid, char* libname, char *symbol)
         sscanf(line, "%lx-%*lx %*s %*s %*s %*d", &section_start_addr);
         if(strstr(line, libname) != NULL) {
             fclose(fp);
-            symaddr_t symaddr = bin_dlsym(libname, symbol);
+            exe bin(libname);
+            symaddr_t symaddr = bin.bin_dlsym(symbol);
             return section_start_addr + symaddr.addr;
         }
     }

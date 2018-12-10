@@ -1,10 +1,7 @@
 //
 // Created by william on 04/11/18.
 //
-#include "hot_swap.h"
-#include "libs/bin_dlsym.c"
-#include "libs/utils.c"
-#include "libs/ptrace.c"
+#include "hot_swap.hpp"
 
 /**
  * injectSharedLibrary()
@@ -187,7 +184,7 @@ void ejectSharedLibrary_end()
  * injected binary in the target process's virtual memory.
  */
 void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long targetMallocAddr,
-              long targetDlopenAddr, long targetFreeAddr, int libPathLength) { //
+              long targetDlopenAddr, long targetFreeAddr, symaddr_t targetFuncAddr, int libPathLength) { //
 
     struct user_regs_struct oldregs, regs;
     memset(&oldregs, 0, sizeof(struct user_regs_struct));
@@ -312,10 +309,9 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
         char exename[32];
         sprintf(exename, "/proc/%d/exe", target);
 //        fprintf(stderr, "exename: %s\nfuncname: %s\n", exename, funcname);
-        symaddr_t funcaddr = bin_dlsym(exename, funcname);
         //The address of the original function to be replaced is
         //calculated differently for different types of executable
-        void *orig_func_addr = funcaddr.type == ET_DYN ? funcaddr.addr + freeSpaceAddr - sizeof(long) : funcaddr.addr;
+        void *orig_func_addr = targetFuncAddr.type == ET_DYN ? targetFuncAddr.addr + freeSpaceAddr - sizeof(long) : targetFuncAddr.addr;
 
         ptrace_write(target, (unsigned long)orig_func_addr, buf, 4 + sizeof(void *));
         printf("All complete.\n");
@@ -393,7 +389,7 @@ int pdlclose(pid_t target, void *targetLibHandle, long targetDlcloseAddr) {
     return retval;
 }
 
-char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, char **libs, unsigned nlibs) {
+char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, vector<string> *linker_flags) {
     printf("Isolating function...\n");
 
     char tmpFilePath[PATH_MAX];
@@ -410,7 +406,7 @@ char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, 
 
     //Shared object name
     size_t tmpFilePath_len = strlen(tmpFilePath);
-    char *tmpSharedObjPath = malloc(tmpFilePath_len + 2);
+    char *tmpSharedObjPath = (char *)malloc(tmpFilePath_len + 2);
 
     sprintf(tmpSharedObjPath, "./tmp/%s-%s.so", srcFilename, funcname);
 
@@ -419,6 +415,7 @@ char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, 
     printf("Compiling function...\n");
     pid_t pid = fork();
     if (!pid) { //Child
+        size_t nlibs = linker_flags ? linker_flags->size() : 0;
         char *args[7 + nlibs];
         args[0] = "gcc";
         args[1] = "-shared";
@@ -427,7 +424,7 @@ char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, 
         args[4] = "-fPIC";
         args[5] = tmpFilePath;
         for (unsigned i = 0; i < nlibs; i++) {
-            args[i + 6] = libs[i];
+            args[i + 6] = strdup((*linker_flags)[i].c_str());
         }
         args[6 + nlibs] = NULL;
 

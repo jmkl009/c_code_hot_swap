@@ -12,6 +12,9 @@
 #include <limits.h>
 #include <ctype.h>
 
-int isolateFunction(const char* inFile, const char * funcName, const char* writeFile);
+
+int isolateFunction(const char* inFile, char * funcName, const char* writeFile);
+
+
 
 #endif //C_CODE_HOT_SWAP_CPARSER_H

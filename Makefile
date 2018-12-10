@@ -1,6 +1,6 @@
 EXE = hot_swap
 
-CC = gcc
+CC = g++
 WARNINGS =
 CFLAGS_RELEASE = -no-pie -O2
 
@@ -9,14 +9,14 @@ OBJS = hot_swap.o cparser.o demo1.o
 OBJS_DIR = .objs
 
 # set up linker
-LD = gcc
+LD = g++
 LDFLAGS = -ldl
 
 .PHONY: release clean
 
 release: demo1
 
-demo1: demo1.o hot_swap.o cparser.o
+demo1: demo1.cpp hot_swap.cpp cparser.cpp libs/ptrace.c libs/utils.c libs/bin_dlsym.cpp
 	$(LD) $(CFLAGS_RELEASE) $^ -o $@ $(LDFLAGS)
 
 demo1.o: demo1.c
