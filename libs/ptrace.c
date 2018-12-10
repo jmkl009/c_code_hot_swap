@@ -114,6 +114,26 @@ void ptrace_cont(pid_t target)
 }
 
 /*
+ * ptrace_letgo()
+ *
+ * Continue the execution of a process being traced using ptrace(). Note that
+ * this is different from ptrace_cont(): we do not check for signals.
+ *
+ * args:
+ * - int pid: pid of the target process
+ *
+ */
+
+void ptrace_letgo(pid_t target)
+{
+	if(ptrace(PTRACE_CONT, target, NULL, NULL) == -1)
+	{
+		fprintf(stderr, "ptrace(PTRACE_CONT) failed\n");
+		exit(1);
+	}
+}
+
+/*
  * ptrace_setregs()
  *
  * Use ptrace() to set the target's register state.
