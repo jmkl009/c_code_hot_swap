@@ -1,14 +1,10 @@
 //
 // Created by william on 04/11/18.
 //
+#include "hot_swap.h"
 #include "libs/bin_dlsym.c"
 #include "libs/utils.c"
 #include "libs/ptrace.c"
-#include "cparser.h"
-#include <wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#define FUNC_NAME_MAX (1024)
 
 /**
  * injectSharedLibrary()
@@ -34,12 +30,10 @@ void injectSharedLibrary(long mallocaddr, long dlopenaddr, long freeaddr)
     //   rsi = address of free() in target process
     //   rdx = address of __libc_dlopen_mode() in target process
     //   rcx = size of the path to the shared library we want to load
-
     // save addresses of free() and __libc_dlopen_mode() on the stack for later use
     asm(
-    //Protection against placing the instruction pointer rip at wrong place.
-    "nop \n"
-    "nop \n"
+    //Set up frame pointer
+    "push %rbp\n"
     // rsi is going to contain the address of free(). it's going to get wiped
     // out by the call to malloc(), so save it on the stack for later
     "push %rsi \n"
@@ -108,7 +102,9 @@ void injectSharedLibrary(long mallocaddr, long dlopenaddr, long freeaddr)
     // call free()
     "callq *%rbx \n"
     // restore previous rbx value
-    "pop %rbx"
+    "pop    %rbx\n"
+    //Pop frame pointer
+    "pop    %rbp"
     );
 
     // we already overwrote the RET instruction at the end of this function
@@ -152,9 +148,8 @@ void ejectSharedLibrary(long dlcloseAddr, unsigned long long handle)
 
     // call __libc_dlclose() from within the target process
     asm(
-    //Protection against placing the instruction pointer rip at wrong place.
-    "nop \n"
-    "nop \n"
+    //Set up frame pointer
+    "push %rbp\n"
     // save previous value of r9, because we're going to use it to call __libc_dlclose()
     "push %r9 \n"
     // now move the address of __libc_dlclose() into r9
@@ -165,6 +160,8 @@ void ejectSharedLibrary(long dlcloseAddr, unsigned long long handle)
     "callq *%r9 \n"
     // after returning from __libc_dlclose(), pop the previous value of r9 off the stack
     "pop %r9 \n"
+    //Pop frame pointer
+    "Pop %rbp\n"
     );
 }
 
@@ -190,12 +187,11 @@ void ejectSharedLibrary_end()
  * injected binary in the target process's virtual memory.
  */
 void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long targetMallocAddr,
-   long targetDlopenAddr, long targetFreeAddr, int libPathLength) { //
+              long targetDlopenAddr, long targetFreeAddr, int libPathLength) { //
 
     struct user_regs_struct oldregs, regs;
     memset(&oldregs, 0, sizeof(struct user_regs_struct));
     memset(&regs, 0, sizeof(struct user_regs_struct));
-
 
     ptrace_getregs(target, &oldregs);
     memcpy(&regs, &oldregs, sizeof(struct user_regs_struct));
@@ -206,8 +202,8 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     // it. we have to advance by 2 bytes here because rip gets incremented
     // by the size of the current instruction, and the instruction at the
     // start of the function to inject always happens to be 2 bytes long.
-    regs.rip = freeSpaceAddr + 2;
-
+    regs.rip = freeSpaceAddr +2;
+    printf("freespaceaddr: %lx\n", regs.rip);
     // pass arguments to my function injectSharedLibrary() by loading them
     // into the right registers. note that this will definitely only work
     // on x64, because it relies on the x64 calling convention, in which
@@ -254,7 +250,7 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     // now that the new code is in place, let the target run our injected
     // code.
     ptrace_cont(target);
-
+    printf("Checking malloc return value...\n");
     // at this point, the target should have run malloc(). check its return
     // value to see if it succeeded, and bail out cleanly if it didn't.
     struct user_regs_struct malloc_regs;
@@ -283,7 +279,6 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     // continue the target's execution again in order to call
     // __libc_dlopen_mode.
     ptrace_cont(target);
-
     // check out what the registers look like after calling dlopen.
     struct user_regs_struct dlopen_regs;
     memset(&dlopen_regs, 0, sizeof(struct user_regs_struct));
@@ -341,7 +336,6 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     restoreStates(target, freeSpaceAddr, backup, injectSharedLibrary_size, oldregs);
     free(backup);
     free(newcode);
-    free(shared_obj_real_path);
 
     return (void *)libAddr;
 }
@@ -399,113 +393,60 @@ int pdlclose(pid_t target, void *targetLibHandle, long targetDlcloseAddr) {
     return retval;
 }
 
-void *replace_func_in_target(pid_t target, char *srcFilePath, char *funcname,
-   long targetMallocAddr, long targetDlopenAddr, long targetFreeAddr) {
-  printf("Isolating function...\n");
+char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, char **libs, unsigned nlibs) {
+    printf("Isolating function...\n");
 
-  char tmpFilePath[PATH_MAX];
-  char *srcFilename = get_filename_from_path(srcFilePath);
-  sprintf(tmpFilePath, "./tmp/%s-%s.c", srcFilename, funcname);
-  int isolate_result = isolateFunction(srcFilePath, funcname, tmpFilePath);
-  if (isolate_result == 0) {
-      fprintf(stderr, "Function not found.\n");
-      exit(1);
-  } else if (isolate_result == -1) {
-      fprintf(stderr, "File error.\n");
-      exit(1);
-  }
+    char tmpFilePath[PATH_MAX];
+    char *srcFilename = get_filename_from_path(srcFilePath);
+    sprintf(tmpFilePath, "%s/%s-%s.c", tmpDirPath, srcFilename, funcname);
+    int isolate_result = isolateFunction(srcFilePath, funcname, tmpFilePath);
+    if (isolate_result == 0) {
+        fprintf(stderr, "Function not found.\n");
+        exit(1);
+    } else if (isolate_result == -1) {
+        fprintf(stderr, "File error.\n");
+        exit(1);
+    }
 
-  //Shared object name
-  size_t tmpFilePath_len = strlen(tmpFilePath);
-  char tmpSharedObjPath[tmpFilePath_len + 2];
+    //Shared object name
+    size_t tmpFilePath_len = strlen(tmpFilePath);
+    char *tmpSharedObjPath = malloc(tmpFilePath_len + 2);
 
-  sprintf(tmpSharedObjPath, "./tmp/%s-%s.so", srcFilename, funcname);
+    sprintf(tmpSharedObjPath, "./tmp/%s-%s.so", srcFilename, funcname);
 
-  fprintf(stderr, "%s\n%s\n", tmpSharedObjPath, tmpFilePath);
-  //Compile shared object
-  printf("Compiling function...\n");
-  pid_t pid = fork();
-  if (!pid) { //Child
-      execlp("gcc", "gcc", "-shared", "-o", tmpSharedObjPath, "-fPIC", tmpFilePath, NULL);
-      exit(-1);
-  } else { //Parent
-      int status;
-      waitpid(pid, &status, 0);
-      if (WEXITSTATUS(status) == 0) {
-          printf("Successfully compiled.\n");
-      } else {
-          fprintf(stderr, "Compilation failed. Exit status:%d\n", WEXITSTATUS(status));
-          exit(1);
-      }
-  }
+    fprintf(stderr, "%s\n%s\n", tmpSharedObjPath, tmpFilePath);
+    //Compile shared object
+    printf("Compiling function...\n");
+    pid_t pid = fork();
+    if (!pid) { //Child
+        char *args[7 + nlibs];
+        args[0] = "gcc";
+        args[1] = "-shared";
+        args[2] = "-o";
+        args[3] = tmpSharedObjPath;
+        args[4] = "-fPIC";
+        args[5] = tmpFilePath;
+        for (unsigned i = 0; i < nlibs; i++) {
+            args[i + 6] = libs[i];
+        }
+        args[6 + nlibs] = NULL;
 
-  printf("Preparing to inject function...\n");
-  char *shared_obj_real_path = realpath(tmpSharedObjPath, NULL);
-  int libPathLength = strlen(shared_obj_real_path) + 1;
-  return pdlopen(target,
-    shared_obj_real_path, funcname, targetMallocAddr, targetDlopenAddr,
-    targetFreeAddr, libPathLength);
+        execvp("gcc", args);
+        exit(-1);
+    } else { //Parent
+        int status;
+        waitpid(pid, &status, 0);
+        if (WEXITSTATUS(status) == 0) {
+            printf("Successfully compiled.\n");
+        } else {
+            fprintf(stderr, "Compilation failed. Exit status:%d\n", WEXITSTATUS(status));
+            return NULL;
+        }
+    }
+    return tmpSharedObjPath;
 }
 
-int main(int argc, char* argv[]) {
-    if(argc < 3) {
-        usage(argv[0]);
-        exit(1);
-    }
-
-    char* command = argv[1];
-    char* commandArg = argv[2];
-
-    char* processName = NULL;
-    pid_t target = 0;
-    if (!strcmp(command, "-n")) {
-        processName = commandArg;
-        target = findProcessByName(processName);
-        if(target == -1)
-        {
-            fprintf(stderr, "doesn't look like a process named \"%s\" is running right now\n", processName);
-            return 1;
-        }
-
-        printf("targeting process \"%s\" with pid %d\n", processName, target);
-
-    } else if(!strcmp(command, "-p")) {
-        target = atoi(commandArg);
-        printf("targeting process with pid %d\n", target);
-    } else {
-        usage(argv[0]);
-        exit(1);
-    }
-
-    char srcFilePath[PATH_MAX];
-    if (argc >= 5) {
-        strcpy(srcFilePath, argv[4]);
-        char * file_command = argv[3];
-        if (strcmp(file_command, "-f")) {
-            usage(argv[0]);
-            exit(1);
-        }
-    } else {
-        char buff[PATH_MAX];
-        printf("Please enter the path of the source file: \n");
-        if (scanf("%s", buff) == 0) {
-            fprintf(stderr, "Please enter a valid source file name.\n");
-            exit(1);
-        }
-        strcpy(srcFilePath, buff);
-    }
-
-    printf("WARNING: Please make sure that the executable "
-           "was compiled with flag -rdynamic, "
-           "or else the code injection may not work "
-           "if you call statically compiled functions.\n");
-
-    mkdir("./tmp", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-     // if (status == -1) {
-     //     fprintf(stderr, "Making directory failed\n");
-     //     exit(1);
-     // }
-
+void init_target_useful_func_addrs(pid_t target, TargetUsefulFuncAddrs* addrs) {
     int mypid = getpid();
     long mylibcaddr = getlibcaddr(mypid);
 
@@ -528,27 +469,8 @@ int main(int argc, char* argv[]) {
     // get the target process' libc address and use it to find the
     // addresses of the syscalls we want to use inside the target process
     long targetLibcAddr = getlibcaddr(target);
-    long targetMallocAddr = targetLibcAddr + mallocOffset;
-    long targetFreeAddr = targetLibcAddr + freeOffset;
-    long targetDlopenAddr = targetLibcAddr + dlopenOffset;
-    long targetDlcloseAddr = targetLibcAddr + dlcloseOffset;
-
-    ptrace_attach(target);
-
-
-    printf("Please enter the name of the function to replace: \n");
-    char funcname[FUNC_NAME_MAX];
-    if (scanf("%s", funcname) == 0) {
-        fprintf(stderr, "Scan error.");
-        exit(1);
-    }
-
-    void *libAddr = replace_func_in_target(target, srcFilePath, funcname,
-      targetMallocAddr, targetDlopenAddr, targetFreeAddr);
-    if (!libAddr) {
-      exit(1);
-    }
-    // fprintf(stderr, "libAddr: %p\n", libAddr);
-//    pdlclose(target, libAddr, targetDlcloseAddr);
-    ptrace_detach(target);
+    addrs->targetMallocAddr = targetLibcAddr + mallocOffset;
+    addrs->targetFreeAddr = targetLibcAddr + freeOffset;
+    addrs->targetDlopenAddr = targetLibcAddr + dlopenOffset;
+    addrs->targetDlcloseAddr = targetLibcAddr + dlcloseOffset;
 }

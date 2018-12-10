@@ -321,7 +321,6 @@ ssize_t getline_split_by(char **line_ptr, int *capacity_ptr, FILE * in, char tok
 free(line);\
 fclose(in);\
 fclose(out);
-
 int isolateFunction(const char* inFile, const char * funcName, const char* writeFile) {
     FILE * in = fopen(inFile, "r");
     if (in == NULL) {
@@ -372,7 +371,8 @@ int isolateFunction(const char* inFile, const char * funcName, const char* write
                     if (back_slash_exists(meaningfulLineStart)) {
                         resolveDefine(in, out);
                     }
-                } else if (str_contains_at_beginning(meaningfulLineStart + 1, INCLUDE)) {
+                }
+                else if (str_contains_at_beginning(meaningfulLineStart + 1, INCLUDE)) {
                     //sizeof "#include" = 8
                     fwrite(meaningfulLineStart, 8, 1, out);
                     resolveInclude(meaningfulLineStart + 8, out);
