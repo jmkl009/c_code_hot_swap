@@ -12,19 +12,21 @@ OBJS_DIR = .objs
 LD = gcc
 LDFLAGS = -ldl
 
+.PHONY: release clean
+
 release: demo1
 
 demo1: demo1.o hot_swap.o cparser.o
 	$(LD) $(CFLAGS_RELEASE) $^ -o $@ $(LDFLAGS)
 
-main.o: main.c
-	$(CC) $(CFLAGS_RELEASE) -c main.c
+demo1.o: demo1.c
+	$(CC) $(CFLAGS_RELEASE) -c $<
 
 hot_swap.o: hot_swap.c
-	$(CC) $(CFLAGS_RELEASE) -c hot_swap.c
+	$(CC) $(CFLAGS_RELEASE) -c $<
 
 cparser.o: cparser.c
-	$(CC) $(CFLAGS_RELEASE) -c cparser.c
+	$(CC) $(CFLAGS_RELEASE) -c $<
 
 clean:
 	rm *.o
