@@ -321,7 +321,7 @@ ssize_t getline_split_by(char **line_ptr, int *capacity_ptr, FILE * in, char tok
 free(line);\
 fclose(in);\
 fclose(out);
-int isolateFunction(const char* inFile, char * funcName, const char* writeFile) {
+int isolateFunction(char* inFile, char * funcName, char* writeFile) {
     FILE * in = fopen(inFile, "r");
     if (in == NULL) {
         fprintf(stderr, "input file parser error (%s): ", inFile);

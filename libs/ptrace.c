@@ -17,7 +17,7 @@ void ptrace_attach(pid_t target)
 
 	if(ptrace(PTRACE_ATTACH, target, NULL, NULL) == -1)
 	{
-		fprintf(stderr, "ptrace(PTRACE_ATTACH) failed\n");
+		perror("ptrace(PTRACE_ATTACH) failed");
 		exit(1);
 	}
 
@@ -26,6 +26,26 @@ void ptrace_attach(pid_t target)
 		fprintf(stderr, "waitpid(%d) failed\n", target);
 		exit(1);
 	}
+//	printf("%s\n", strsignal(WSTOPSIG(waitpidstatus)));
+}
+
+/*
+ * ptrace_seize()
+ *
+ * Use ptrace() to attach to a process.
+ *
+ * args:
+ * - int pid: pid of the process to attach to
+ *
+ */
+
+void ptrace_seize(pid_t target)
+{
+    if(ptrace(PTRACE_SEIZE, target, NULL, NULL) == -1)
+    {
+        perror("ptrace(PTRACE_SEIZE) failed");
+        exit(1);
+    }
 }
 
 /*
@@ -44,7 +64,7 @@ void ptrace_detach(pid_t target)
 {
 	if(ptrace(PTRACE_DETACH, target, NULL, NULL) == -1)
 	{
-		fprintf(stderr, "ptrace(PTRACE_DETACH) failed\n");
+		perror("ptrace(PTRACE_DETACH) failed");
 		exit(1);
 	}
 }
@@ -67,7 +87,7 @@ void ptrace_getregs(pid_t target, struct REG_TYPE* regs)
 {
 	if(ptrace(PTRACE_GETREGS, target, NULL, regs) == -1)
 	{
-		fprintf(stderr, "ptrace(PTRACE_GETREGS) failed\n");
+		perror("ptrace(PTRACE_GETREGS) failed");
 		exit(1);
 	}
 }
@@ -93,7 +113,7 @@ void ptrace_cont(pid_t target)
 
 	if(ptrace(PTRACE_CONT, target, NULL, NULL) == -1)
 	{
-		fprintf(stderr, "ptrace(PTRACE_CONT) failed\n");
+		perror("ptrace(PTRACE_CONT) failed");
 		free(sleeptime);
 		exit(1);
 	}
@@ -118,9 +138,9 @@ void ptrace_cont(pid_t target)
 
 void ptrace_letgo(pid_t target)
 {
-	if(ptrace(PTRACE_CONT, target, NULL, NULL) == -1)
+	if(ptrace(PTRACE_CONT, target, 0, 0) == -1)
 	{
-		fprintf(stderr, "ptrace(PTRACE_CONT) failed\n");
+		perror("ptrace(PTRACE_CONT) failed");
 		exit(1);
 	}
 }
@@ -142,7 +162,7 @@ void ptrace_setregs(pid_t target, struct REG_TYPE* regs)
 {
 	if(ptrace(PTRACE_SETREGS, target, NULL, regs) == -1)
 	{
-		fprintf(stderr, "ptrace(PTRACE_SETREGS) failed\n");
+		perror("ptrace(PTRACE_SETREGS) failed");
 		exit(1);
 	}
 }
@@ -168,10 +188,31 @@ siginfo_t ptrace_getsiginfo(pid_t target)
 	siginfo_t targetsig;
 	if(ptrace(PTRACE_GETSIGINFO, target, NULL, &targetsig) == -1)
 	{
-		fprintf(stderr, "ptrace(PTRACE_GETSIGINFO) failed\n");
+		perror("ptrace(PTRACE_GETSIGINFO) failed");
 		exit(1);
 	}
 	return targetsig;
+}
+
+void ptrace_singlestep(pid_t target) {
+    if(ptrace(PTRACE_SINGLESTEP, target, NULL, NULL) == -1) {
+        perror("ptrace(PTRACE_SINGLESTEP) failed");
+        exit(1);
+    }
+}
+//
+//void ptrace_stop(pid_t target) {
+//	if(ptrace(PTRACE_INTERRUPT, target, NULL, SIGSTOP) == -1) {
+//		perror("ptrace_stop failed");
+//		exit(1);
+//	}
+//}
+
+void ptrace_restart(pid_t target, int signal) {
+    if(ptrace(PTRACE_CONT, target, NULL, signal) == -1) {
+        perror("ptrace(PTRACE_restart) failed");
+        exit(1);
+    }
 }
 
 /*
@@ -199,7 +240,7 @@ void ptrace_read(int pid, unsigned long addr, void *vptr, int len)
 		word = ptrace(PTRACE_PEEKTEXT, pid, addr + bytesRead, NULL);
 		if(word == -1)
 		{
-			fprintf(stderr, "ptrace(PTRACE_PEEKTEXT) failed\n");
+			perror("ptrace(PTRACE_PEEKTEXT) failed");
 			exit(1);
 		}
 		bytesRead += sizeof(word);
@@ -232,7 +273,7 @@ void ptrace_write(int pid, unsigned long addr, void *vptr, int len)
 		word = ptrace(PTRACE_POKETEXT, pid, addr + byteCount, word);
 		if(word == -1)
 		{
-			fprintf(stderr, "ptrace(PTRACE_POKETEXT) failed\n");
+			perror("ptrace(PTRACE_POKETEXT) failed");
 			exit(1);
 		}
 		byteCount += sizeof(word);
@@ -263,7 +304,13 @@ void checktargetsig(int pid)
 	{
 		fprintf(stderr, "instead of expected SIGTRAP, target stopped with signal %d: %s\n", targetsig.si_signo, strsignal(targetsig.si_signo));
 		fprintf(stderr, "sending process %d a SIGSTOP signal for debugging purposes\n", pid);
-		ptrace(PTRACE_CONT, pid, NULL, SIGSTOP);
+//		int status;
+//		waitpid(pid, &status, 0);
+//		ptrace_cont(pid);
+//		ptrace(PTRACE_CONT, pid, NULL, SIGSTOP);
+        show_stack_trace(pid);
+//        ptrace_cont(pid);
+        ptrace(PTRACE_CONT, pid, NULL, NULL);
 		exit(1);
 	}
 }

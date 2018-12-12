@@ -188,8 +188,6 @@ int main(int argc, char* argv[]) {
         }
 
         last_modify = modified_time;
-        char *libs[1];
-        libs[0] = "-lncurses";
         char *tmpSharedObjPath = compile_func_in_file(srcFilePath, funcname, TEMP_DIR, &linker_flags);
 
         if (tmpSharedObjPath != NULL) {

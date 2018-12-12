@@ -13,7 +13,7 @@
 #include <ctype.h>
 
 
-int isolateFunction(const char* inFile, char * funcName, const char* writeFile);
+int isolateFunction(char* inFile, char * funcName, char* writeFile);
 
 
 

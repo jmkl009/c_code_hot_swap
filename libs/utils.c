@@ -319,5 +319,40 @@ void *get_base_addr(pid_t pid) {
     return base;
 }
 
+void show_stack_trace(pid_t pid) {
+    unw_addr_space_t as = unw_create_addr_space(&_UPT_accessors, 0);
+    void *context = _UPT_create(pid);
+    unw_cursor_t cursor;
+    unw_cursor_t cursor_copy;
+    if (unw_init_remote(&cursor, as, context) != 0) {
+        printf("ERROR: cannot initialize cursor for remote unwinding\n");
+        exit(1);
+    }
+    cursor_copy = cursor;
+
+    char func[1024];
+    unw_get_proc_name(&cursor, func, sizeof(func), NULL);
+    do {
+        unw_word_t offset, pc;
+        char sym[1024];
+        if (unw_get_reg(&cursor, UNW_REG_IP, &pc)) {
+            printf("ERROR: cannot read program counter\n");
+            exit(1);
+        }
+
+        printf("0x%lx: ", pc);
+
+        if (unw_get_proc_name(&cursor, sym, sizeof(sym), &offset) == 0)
+            printf("(%s+0x%lx)\n", sym, offset);
+        else
+            printf("-- no symbol name found\n");
+    } while (unw_step(&cursor) > 0);
+//    unw_step(&cursor_copy);
+//    unw_step(&cursor_copy);
+//    unw_step(&cursor_copy);
+//    unw_resume(&cursor_copy);
+    _UPT_destroy(context);
+}
+
 
 #endif

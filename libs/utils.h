@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <libunwind-ptrace.h>
 #include "bin_dlsym.hpp"
 
 #define INTEL_RET_INSTRUCTION 0xc3
@@ -25,5 +26,6 @@ long getFunctionAddress(char* funcName);
 unsigned char* findRet(void* endAddr);
 void usage(char* name);
 void *get_base_addr(pid_t pid);
+void show_stack_trace(pid_t pid);
 
 #endif //DDB_UTILS_H

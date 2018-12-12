@@ -199,7 +199,7 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     // it. we have to advance by 2 bytes here because rip gets incremented
     // by the size of the current instruction, and the instruction at the
     // start of the function to inject always happens to be 2 bytes long.
-    regs.rip = freeSpaceAddr +2;
+    regs.rip = freeSpaceAddr + 1;
     printf("freespaceaddr: %lx\n", regs.rip);
     // pass arguments to my function injectSharedLibrary() by loading them
     // into the right registers. note that this will definitely only work
@@ -254,6 +254,7 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     memset(&malloc_regs, 0, sizeof(struct user_regs_struct));
     ptrace_getregs(target, &malloc_regs);
     unsigned long long targetBuf = malloc_regs.rax;
+    printf("malloc allocated at address: 0x%lx\n", targetBuf);
     if(targetBuf == 0)
     {
         fprintf(stderr, "malloc() failed to allocate memory\n");
@@ -398,10 +399,10 @@ char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, 
     int isolate_result = isolateFunction(srcFilePath, funcname, tmpFilePath);
     if (isolate_result == 0) {
         fprintf(stderr, "Function not found.\n");
-        exit(1);
+        return NULL;
     } else if (isolate_result == -1) {
         fprintf(stderr, "File error.\n");
-        exit(1);
+        return NULL;
     }
 
     //Shared object name
