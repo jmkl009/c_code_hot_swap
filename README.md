@@ -2,7 +2,7 @@
 hot swaps c code to make a better debugging experience
 type make ddb in terminal to make the ddb dynamic debugger
 
-# system requirement
+# System Requirement
 ubuntu 18.04 (tested)
-# library requirements
+# Library Requirements
 libdl libunwind
