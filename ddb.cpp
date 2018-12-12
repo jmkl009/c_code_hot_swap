@@ -20,7 +20,6 @@
 #include <libunwind-ptrace.h>
 #include "StackUnwinder.h"
 #include "FunctionInjector.h"
-#include "libs/simplereader.h"
 #include "libs/ptrace.h"
 
 void print_stack_trace(pid_t target) {
