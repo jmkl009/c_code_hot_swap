@@ -24,57 +24,57 @@ Elf64_Addr exe::lookup_symbol(const char *symname) {
     return 0;
 }
 
-    exe::exe(char * name) {
-        bin_name = strdup(name);
-        h.exec = bin_name;
-        if ((fd = open(h.exec, O_RDONLY)) < 0) {
-            perror("open");
-            exit(-1);
-        }
-
-        struct stat st;
-        if (fstat(fd, &st) < 0) {
-            perror("fstat");
-            exit(-1);
-        }
-
-        mem_len = (size_t)st.st_size;
-        h.mem = (uint8_t *)mmap(nullptr, mem_len, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (h.mem == MAP_FAILED) {
-            perror("mmap");
-            exit(-1);
-        }
-
-        h.ehdr = (Elf64_Ehdr *)h.mem;
-        h.phdr = (Elf64_Phdr *)(h.mem + h.ehdr->e_phoff);
-        h.shdr = (Elf64_Shdr *)(h.mem + h.ehdr->e_shoff);
-
-        if (h.mem[0] != 0x7f && !strcmp((char *)&h.mem[1], "ELF")) {
-            printf("%s is not an ELF file\n",h.exec);
-            exit(-1);
-        }
-
-        if (h.ehdr->e_shstrndx == 0 || h.ehdr->e_shoff == 0 || h.ehdr->e_shnum == 0) {
-            printf("Section header table not found\n");
-            exit(-1);
-        }
+exe::exe(char * name) {
+    bin_name = strdup(name);
+    h.exec = bin_name;
+    if ((fd = open(h.exec, O_RDONLY)) < 0) {
+        perror("open");
+        exit(-1);
     }
 
-    exe::~exe() {
-        munmap(h.mem, mem_len);
-        close(fd);
-        free(bin_name);
+    struct stat st;
+    if (fstat(fd, &st) < 0) {
+        perror("fstat");
+        exit(-1);
     }
 
-    symaddr_t exe::bin_dlsym(char *symbol) {
-        h.symname = symbol;
-        if ((h.symaddr = lookup_symbol(h.symname)) == 0) {
-            printf("Unable to find symbol: %s not found in executable\n", h.symname);
-            exit(-1);
-        }
-
-        return (symaddr_t){.addr = (void *)h.symaddr, .type = h.ehdr->e_type};
+    mem_len = (size_t)st.st_size;
+    h.mem = (uint8_t *)mmap(nullptr, mem_len, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (h.mem == MAP_FAILED) {
+        perror("mmap");
+        exit(-1);
     }
+
+    h.ehdr = (Elf64_Ehdr *)h.mem;
+    h.phdr = (Elf64_Phdr *)(h.mem + h.ehdr->e_phoff);
+    h.shdr = (Elf64_Shdr *)(h.mem + h.ehdr->e_shoff);
+
+    if (h.mem[0] != 0x7f && !strcmp((char *)&h.mem[1], "ELF")) {
+        printf("%s is not an ELF file\n",h.exec);
+        exit(-1);
+    }
+
+    if (h.ehdr->e_shstrndx == 0 || h.ehdr->e_shoff == 0 || h.ehdr->e_shnum == 0) {
+        printf("Section header table not found\n");
+        exit(-1);
+    }
+}
+
+exe::~exe() {
+    munmap(h.mem, mem_len);
+    close(fd);
+    free(bin_name);
+}
+
+symaddr_t exe::bin_dlsym(char *symbol) {
+    h.symname = symbol;
+    if ((h.symaddr = lookup_symbol(h.symname)) == 0) {
+        printf("Unable to find symbol: %s not found in executable\n", h.symname);
+        exit(-1);
+    }
+
+    return (symaddr_t){.addr = (void *)h.symaddr, .type = h.ehdr->e_type};
+}
 
 vector<string> exe::lookup_linker_flags() {
     vector<string> linker_flags;

@@ -3,6 +3,7 @@ EXE = hot_swap
 CC = g++
 WARNINGS =
 CFLAGS_RELEASE = -no-pie -O2
+CFLAGS_DEBUG = -no-pie -g
 
 SRC = hot_swap.cpp cparser.cpp demo1.cpp
 OBJS = hot_swap.o cparser.o demo1.o
@@ -20,17 +21,12 @@ release: demo1 ddb
 demo1: demo1.cpp hot_swap.cpp cparser.cpp libs/ptrace.c libs/utils.c libs/bin_dlsym.cpp FunctionInjector.cpp
 	$(LD) $(CFLAGS_RELEASE) $^ -o $@ $(LDFLAGS_DEMO)
 
-ddb: ddb.cpp hot_swap.cpp cparser.cpp libs/ptrace.c libs/utils.c libs/bin_dlsym.cpp
-    $(LD) $(CFLAGS_RELEASE) $^ -o $@ $(LDFLAGS)
+ddb: ddb.cpp hot_swap.cpp cparser.cpp libs/ptrace.c libs/utils.c libs/bin_dlsym.cpp FunctionInjector.cpp StackUnwinder.cpp
+	$(LD) $(CFLAGS_RELEASE) $^ -o $@ $(LDFLAGS)
 
-demo1.o: demo1.c
+hot_swap.o:
 	$(CC) $(CFLAGS_RELEASE) -c $<
 
-hot_swap.o: hot_swap.c
-	$(CC) $(CFLAGS_RELEASE) -c $<
-
-cparser.o: cparser.c
-	$(CC) $(CFLAGS_RELEASE) -c $<
 
 clean:
 	rm *.o

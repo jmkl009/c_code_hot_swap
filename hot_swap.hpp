@@ -25,7 +25,7 @@ typedef struct {
 } TargetUsefulFuncAddrs;
 
 void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long targetMallocAddr,
-              long targetDlopenAddr, long targetFreeAddr, symaddr_t targetFuncAddr, int libPathLength);
+              long targetDlopenAddr, long targetFreeAddr, symaddr_t targetFuncAddr, int libPathLength, int inject_offset);
 int pdlclose(pid_t target, void *targetLibHandle, long targetDlcloseAddr);
 char *compile_func_in_file(char *srcFilePath, char *funcname, char *tmpDirPath, vector<string> *linker_flags);
 void init_target_useful_func_addrs(pid_t target, TargetUsefulFuncAddrs* addrs);

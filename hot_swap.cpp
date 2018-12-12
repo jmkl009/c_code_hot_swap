@@ -158,7 +158,7 @@ void ejectSharedLibrary(long dlcloseAddr, unsigned long long handle)
     // after returning from __libc_dlclose(), pop the previous value of r9 off the stack
     "pop %r9 \n"
     //Pop frame pointer
-    "Pop %rbp\n"
+    "pop %rbp\n"
     );
 }
 
@@ -184,8 +184,18 @@ void ejectSharedLibrary_end()
  * injected binary in the target process's virtual memory.
  */
 void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long targetMallocAddr,
-              long targetDlopenAddr, long targetFreeAddr, symaddr_t targetFuncAddr, int libPathLength) { //
+              long targetDlopenAddr, long targetFreeAddr, symaddr_t targetFuncAddr, int libPathLength, int inject_offset) {
 
+//    printf("target:%d\n"
+//           "shared_obj_real_path: %s\n"
+//           "funcname: %s\n"
+//           "targetMallocAddr: 0x%lx\n"
+//           "targetDlopenAddr: 0x%lx\n"
+//           "targetFreeAddr: 0x%lx\n"
+//           "targetFuncAddr: 0x%lx\n"
+//           "libPathLength: %d\n"
+//           "inject_offset: %d\n", target, shared_obj_real_path, funcname, targetMallocAddr, targetDlopenAddr, targetFreeAddr,
+//           targetFuncAddr.addr, libPathLength, inject_offset);
     struct user_regs_struct oldregs, regs;
     memset(&oldregs, 0, sizeof(struct user_regs_struct));
     memset(&regs, 0, sizeof(struct user_regs_struct));
@@ -199,7 +209,7 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
     // it. we have to advance by 2 bytes here because rip gets incremented
     // by the size of the current instruction, and the instruction at the
     // start of the function to inject always happens to be 2 bytes long.
-    regs.rip = freeSpaceAddr + 1;
+    regs.rip = freeSpaceAddr + inject_offset; //inject_offset == 1 for signal handling, inject_offset == 2 for normal injection
     printf("freespaceaddr: %lx\n", regs.rip);
     // pass arguments to my function injectSharedLibrary() by loading them
     // into the right registers. note that this will definitely only work
@@ -307,8 +317,8 @@ void *pdlopen(pid_t target, char *shared_obj_real_path, char *funcname, long tar
         memcpy(buf + 0x02, &loaded_func_addr, sizeof(void *));
         memcpy(buf + 0x0a, "\xff\xe0", 2 * sizeof(char));
 
-        char exename[32];
-        sprintf(exename, "/proc/%d/exe", target);
+//        char exename[32];
+//        sprintf(exename, "/proc/%d/exe", target);
 //        fprintf(stderr, "exename: %s\nfuncname: %s\n", exename, funcname);
         //The address of the original function to be replaced is
         //calculated differently for different types of executable
@@ -377,11 +387,11 @@ int pdlclose(pid_t target, void *targetLibHandle, long targetDlcloseAddr) {
     ptrace_getregs(target, &dlclose_regs);
     unsigned long long dlclose_ret = dlclose_regs.rax;
 
-    int retval = 1;
+    int retval = 0;
     if(dlclose_ret != 0)
     {
         fprintf(stderr, "dlclose() failed\n");
-        retval = 0;
+        retval = 1;
     }
 
     restoreStates(target, freeSpaceAddr, backup, ejectSharedLibrary_size, oldregs);

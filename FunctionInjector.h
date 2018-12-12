@@ -25,9 +25,9 @@ typedef struct func_info {
 } func_info;
 
 typedef enum {
-    DEBUG,
+    STOPPED,
     RUNNING
-} inject_type;
+} target_process_state;
 
 class FunctionInjector {
 private:
@@ -37,7 +37,10 @@ private:
     exe *target_exe;
     TargetUsefulFuncAddrs func_addrs;
     vector<string> linker_flags;
-    std::unordered_map<string, func_info*> compiledFunctions;
+    unordered_map<string, unordered_map<string, func_info*>> sources_to_compiled_functions;
+    unordered_map<string, func_info*> *compiled_functions;
+
+    void *inject_func_main(func_info *info, char *funcname, symaddr_t targetFuncAddr, target_process_state state);
 
 
 public:
@@ -46,7 +49,8 @@ public:
 
     void assign_source(char *srcFilePath);
     char *compile_func(char *funcname);
-    int inject_func(char *funcname, inject_type type);
+    int inject_func(char *funcname, target_process_state type);
+    int inject_func_under_ptrace(char *funcname, target_process_state type);
 };
 
 
