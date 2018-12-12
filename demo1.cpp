@@ -1,7 +1,8 @@
 //
 // Created by WangJingjin on 2018/12/9.
 //
-#include "hot_swap.hpp"
+//#include "hot_swap.hpp"
+#include "FunctionInjector.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -171,12 +172,13 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Scan error.");
         exit(1);
     }
-
-    char exe_name_buf[256];
-    sprintf(exe_name_buf, "/proc/%d/exe", target);
-    exe bin(exe_name_buf);
-    vector<string> linker_flags = bin.lookup_linker_flags();
-    symaddr_t targetFuncAddr = bin.bin_dlsym(funcname);
+    FunctionInjector injector(target, TEMP_DIR);
+    injector.assign_source(srcFilePath);
+//    char exe_name_buf[256];
+//    sprintf(exe_name_buf, "/proc/%d/exe", target);
+//    exe bin(exe_name_buf);
+//    vector<string> linker_flags = bin.lookup_linker_flags();
+//    symaddr_t targetFuncAddr = bin.bin_dlsym(funcname);
 
     void *libAddr = NULL;
     while (1) {
@@ -188,30 +190,32 @@ int main(int argc, char* argv[]) {
         }
 
         last_modify = modified_time;
-        char *tmpSharedObjPath = compile_func_in_file(srcFilePath, funcname, TEMP_DIR, &linker_flags);
-
-        if (tmpSharedObjPath != NULL) {
-
-            printf("Preparing to inject function...\n");
-            char *shared_obj_real_path = realpath(tmpSharedObjPath, NULL);
-            free(tmpSharedObjPath);
-            int libPathLength = strlen(shared_obj_real_path) + 1;
-
-            ptrace_attach(target);
-            if (libAddr) {
-                pdlclose(target, libAddr, func_addrs.targetDlcloseAddr);
-            }
-            libAddr = pdlopen(target, shared_obj_real_path, funcname, func_addrs.targetMallocAddr, func_addrs.targetDlopenAddr,
-                              func_addrs.targetFreeAddr, targetFuncAddr, libPathLength);
-            free(shared_obj_real_path);
-
-            if (!libAddr) {
-                ptrace_detach(target);
-                exit(1);
-            }
-            ptrace_detach(target);
-
-        }
+        injector.compile_func(funcname);
+        injector.inject_func(funcname, RUNNING);
+//        char *tmpSharedObjPath = compile_func_in_file(srcFilePath, funcname, TEMP_DIR, &linker_flags);
+//
+//        if (tmpSharedObjPath != NULL) {
+//
+//            printf("Preparing to inject function...\n");
+//            char *shared_obj_real_path = realpath(tmpSharedObjPath, NULL);
+//            free(tmpSharedObjPath);
+//            int libPathLength = strlen(shared_obj_real_path) + 1;
+//
+//            ptrace_attach(target);
+//            if (libAddr) {
+//                pdlclose(target, libAddr, func_addrs.targetDlcloseAddr);
+//            }
+//            libAddr = pdlopen(target, shared_obj_real_path, funcname, func_addrs.targetMallocAddr, func_addrs.targetDlopenAddr,
+//                              func_addrs.targetFreeAddr, targetFuncAddr, libPathLength, 2);
+//            free(shared_obj_real_path);
+//
+//            if (!libAddr) {
+//                ptrace_detach(target);
+//                exit(1);
+//            }
+//            ptrace_detach(target);
+//
+//        }
     }
 
 //

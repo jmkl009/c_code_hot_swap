@@ -6,8 +6,28 @@
 #define C_CODE_HOT_SWAP_FUNCTIONINJECTOR_H
 
 #include "hot_swap.hpp"
-#include <unordered_set>
-using std::unordered_set;
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <unordered_map>
+using std::unordered_map;
+using std::pair;
+
+typedef struct func_info {
+    char *shared_obj_path;
+    void *handle;
+
+    ~func_info() {
+        if (shared_obj_path != NULL) {
+            free(shared_obj_path);
+        }
+    }
+} func_info;
+
+typedef enum {
+    DEBUG,
+    RUNNING
+} inject_type;
 
 class FunctionInjector {
 private:
@@ -17,14 +37,16 @@ private:
     exe *target_exe;
     TargetUsefulFuncAddrs func_addrs;
     vector<string> linker_flags;
-    std::unordered_set<string> injectedFunctions;
+    std::unordered_map<string, func_info*> compiledFunctions;
+
 
 public:
     FunctionInjector(pid_t pid, char *tempdir);
     ~FunctionInjector();
 
     void assign_source(char *srcFilePath);
-    int compile_func(char *funcname);
+    char *compile_func(char *funcname);
+    int inject_func(char *funcname, inject_type type);
 };
 
 

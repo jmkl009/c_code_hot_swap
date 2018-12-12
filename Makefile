@@ -17,7 +17,7 @@ LDFLAGS = -ldl -lunwind -lunwind-ptrace -lunwind-generic
 
 release: demo1 ddb
 
-demo1: demo1.cpp hot_swap.cpp cparser.cpp libs/ptrace.c libs/utils.c libs/bin_dlsym.cpp
+demo1: demo1.cpp hot_swap.cpp cparser.cpp libs/ptrace.c libs/utils.c libs/bin_dlsym.cpp FunctionInjector.cpp
 	$(LD) $(CFLAGS_RELEASE) $^ -o $@ $(LDFLAGS_DEMO)
 
 ddb: ddb.cpp hot_swap.cpp cparser.cpp libs/ptrace.c libs/utils.c libs/bin_dlsym.cpp
