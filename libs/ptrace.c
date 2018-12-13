@@ -1,16 +1,5 @@
 #include "ptrace.h"
 
-/*
- * ptrace_attach()
- *
- * Use ptrace() to attach to a process. This requires calling waitpid() to
- * determine when the process is ready to be traced.
- *
- * args:
- * - int pid: pid of the process to attach to
- *
- */
-
 void ptrace_attach(pid_t target)
 {
 	int waitpidstatus;
@@ -26,18 +15,7 @@ void ptrace_attach(pid_t target)
 		fprintf(stderr, "waitpid(%d) failed\n", target);
 		exit(1);
 	}
-//	printf("%s\n", strsignal(WSTOPSIG(waitpidstatus)));
 }
-
-/*
- * ptrace_seize()
- *
- * Use ptrace() to attach to a process.
- *
- * args:
- * - int pid: pid of the process to attach to
- *
- */
 
 void ptrace_seize(pid_t target)
 {
@@ -48,18 +26,6 @@ void ptrace_seize(pid_t target)
     }
 }
 
-/*
- * ptrace_detach()
- *
- * Detach from a process that is being ptrace()d. Unlike ptrace_cont(), this
- * completely ends our relationship with the target process.
- *
- * args:
- * - int pid: pid of the process to detach from. this process must already be
- *   ptrace()d by us in order for this to work.
- *
- */
-
 void ptrace_detach(pid_t target)
 {
 	if(ptrace(PTRACE_DETACH, target, NULL, NULL) == -1)
@@ -69,20 +35,6 @@ void ptrace_detach(pid_t target)
 	}
 }
 
-/*
- * ptrace_getregs()
- *
- * Use ptrace() to get a process' current register state.  Uses REG_TYPE
- * preprocessor macro in order to allow for both ARM and x86/x86_64
- * functionality.
- *
- * args:
- * - int pid: pid of the target process
- * - struct REG_TYPE* regs: a struct (either user_regs_struct or user_regs,
- *   depending on architecture) to store the resulting register data in
- *
- */
-
 void ptrace_getregs(pid_t target, struct REG_TYPE* regs)
 {
 	if(ptrace(PTRACE_GETREGS, target, NULL, regs) == -1)
@@ -91,18 +43,6 @@ void ptrace_getregs(pid_t target, struct REG_TYPE* regs)
 		exit(1);
 	}
 }
-
-/*
- * ptrace_cont()
- *
- * Continue the execution of a process being traced using ptrace(). Note that
- * this is different from ptrace_detach(): we still retain control of the
- * target process after this call.
- *
- * args:
- * - int pid: pid of the target process
- *
- */
 
 void ptrace_cont(pid_t target)
 {
@@ -125,17 +65,6 @@ void ptrace_cont(pid_t target)
 	free(sleeptime);
 }
 
-/*
- * ptrace_letgo()
- *
- * Continue the execution of a process being traced using ptrace(). Note that
- * this is different from ptrace_cont(): we do not check for signals.
- *
- * args:
- * - int pid: pid of the target process
- *
- */
-
 void ptrace_letgo(pid_t target)
 {
 	if(ptrace(PTRACE_CONT, target, 0, 0) == -1)
@@ -145,19 +74,6 @@ void ptrace_letgo(pid_t target)
 	}
 }
 
-/*
- * ptrace_setregs()
- *
- * Use ptrace() to set the target's register state.
- *
- * args:
- * - int pid: pid of the target process
- * - struct REG_TYPE* regs: a struct (either user_regs_struct or user_regs,
- *   depending on architecture) containing the register state to be set in the
- *   target process
- *
- */
-
 void ptrace_setregs(pid_t target, struct REG_TYPE* regs)
 {
 	if(ptrace(PTRACE_SETREGS, target, NULL, regs) == -1)
@@ -166,22 +82,6 @@ void ptrace_setregs(pid_t target, struct REG_TYPE* regs)
 		exit(1);
 	}
 }
-
-/*
- * ptrace_getsiginfo()
- *
- * Use ptrace() to determine what signal was most recently raised by the target
- * process. This is primarily used for to determine whether the target process
- * has segfaulted.
- *
- * args:
- * - int pid: pid of the target process
- *
- * returns:
- * - a siginfo_t containing information about the most recent signal raised by
- *   the target process
- *
- */
 
 siginfo_t ptrace_getsiginfo(pid_t target)
 {
@@ -215,19 +115,6 @@ void ptrace_restart(pid_t target, int signal) {
     }
 }
 
-/*
- * ptrace_read()
- *
- * Use ptrace() to read the contents of a target process' address space.
- *
- * args:
- * - int pid: pid of the target process
- * - unsigned long addr: the address to start reading from
- * - void *vptr: a pointer to a buffer to read data into
- * - int len: the amount of data to read from the target
- *
- */
-
 void ptrace_read(int pid, unsigned long addr, void *vptr, int len)
 {
 	int bytesRead = 0;
@@ -248,20 +135,6 @@ void ptrace_read(int pid, unsigned long addr, void *vptr, int len)
 	}
 }
 
-/*
- * ptrace_write()
- *
- * Use ptrace() to write to the target process' address space.
- *
- * args:
- * - int pid: pid of the target process
- * - unsigned long addr: the address to start writing to
- * - void *vptr: a pointer to a buffer containing the data to be written to the
- *   target's address space
- * - int len: the amount of data to write to the target
- *
- */
-
 void ptrace_write(int pid, unsigned long addr, void *vptr, int len)
 {
 	int byteCount = 0;
@@ -279,19 +152,6 @@ void ptrace_write(int pid, unsigned long addr, void *vptr, int len)
 		byteCount += sizeof(word);
 	}
 }
-
-/*
- * checktargetsig()
- *
- * Check what signal was most recently returned by the target process being
- * ptrace()d. We expect a SIGTRAP from the target process, so raise an error
- * and exit if we do not receive that signal. The most likely non-SIGTRAP
- * signal for us to receive would be SIGSEGV.
- *
- * args:
- * - int pid: pid of the target process
- *
- */
 
 void checktargetsig(int pid)
 {
@@ -314,21 +174,6 @@ void checktargetsig(int pid)
 		exit(1);
 	}
 }
-
-/*
- * restoreStates()
- *
- * restore the process' backed-up data and register state.
- *
- * args:
- * - pid_t target: pid of the target process
- * - unsigned long addr: address within the target's address space to write
- *   backed-up data to
- * - void* backup: a buffer pointing to the backed-up data
- * - int datasize: the amount of backed-up data to write
- * - struct REG_TYPE oldregs: backed-up register state to restore
- *
- */
 
 void restoreStates(pid_t target, unsigned long addr, void* backup, int datasize, struct REG_TYPE oldregs)
 {

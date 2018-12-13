@@ -22,20 +22,6 @@
 #include "FunctionInjector.h"
 #include "libs/ptrace.h"
 
-void print_stack_trace(pid_t target) {
-    int status;
-    waitpid(target, &status, 0);
-    if (WIFSIGNALED(status)) {
-        printf("terminated signal: %d\n", WTERMSIG(status));
-    } else if (WIFSTOPPED(status)) {
-        printf("stopped signal: %d\n", WSTOPSIG(status));
-    }
-    StackUnwinder unwinder(target);
-    unwinder.print_stack_trace();
-    unwinder.up_stack();
-    unwinder.restart_curr_frame();
-}
-
 #define TEMP_DIR "./tmp"
 
 typedef enum {
@@ -62,6 +48,13 @@ unordered_map<void *, checkpoint_t> break_point_map;
 #define EXE_MODE 0
 #define PID_MODE 1
 
+/**
+ *
+ * Get the name of the executable by the pid of the process.
+ *
+ * @param pid the pid of the target process
+ * @return the executable name of the target process
+ */
 char * get_exe_name(int pid) {
 //    char cmdline[255], path[512], *p;
 //    int fd;
@@ -84,6 +77,9 @@ char * get_exe_name(int pid) {
     return strdup(exename);
 }
 
+/**
+ * Restore the breakpoints set to the target process earlier back to the original code
+ */
 void restore_breakpoints() {
     if (at_trap) { //rewind the instruction back by 1 if it trapped
         struct user_regs_struct regs;
@@ -97,6 +93,10 @@ void restore_breakpoints() {
     }
 }
 
+/**
+ * Restore the breakpoints and quit the debugger.
+ * @param sig
+ */
 void sighandler(int sig) {
     printf("Caught SIGINT: Detaching from %d\n", global_pid);
     restore_breakpoints();
@@ -104,6 +104,10 @@ void sighandler(int sig) {
     exit(0);
 }
 
+/**
+ * Print out the registers of the target process.
+ * @param h the handle_t that contains info about the the target process
+ */
 void print_regs(handle_t *h) {
     printf("\nExecutable %s (pid: %d) has hit breakpoint 0x%lx\n", h->exec, global_pid, (unsigned long)h->pt_reg.rip);
     printf("%%rcx: %llx\n%%rdx: %llx\n%%rbx: %llx\n"
@@ -118,6 +122,14 @@ void print_regs(handle_t *h) {
            h->pt_reg.r14, h->pt_reg.r15, h->pt_reg.rsp);
 }
 
+/**
+ *
+ * Interpret a command for further handling
+ *
+ * @param command the command in the form of char*
+ * @param len the length of the command
+ * @return a command_t struct
+ */
 command_t interpret_command(char *command, ssize_t len) {
     if (len > 1) {
         switch(tolower(command[0])) {
@@ -145,6 +157,10 @@ command_t interpret_command(char *command, ssize_t len) {
     return UNKNOWN;
 }
 
+/**
+ * Handle the intent of the user to replace a function in the target process/
+ * @param unwinder the stack unwinder of the target process
+ */
 void handle_injection(StackUnwinder *unwinder) {
     char *funcname = unwinder->get_curr_funcname();
     if (funcname == NULL) {
@@ -183,6 +199,15 @@ void handle_injection(StackUnwinder *unwinder) {
     return;
 }
 
+/**
+ *
+ * Restart the execution of the current stack frame.
+ * If register state at the start of the execution
+ * of the stack frame was not recorded the arguments
+ * passed to the function is not guaranteed to be the same.
+ *
+ * @param unwinder the stack unwinder of the target process
+ */
 void restart_curr_frame(StackUnwinder *unwinder) {
     printf("restart called\n");
     void *call_addr = unwinder->get_func_call_addr();
@@ -203,6 +228,13 @@ void restart_curr_frame(StackUnwinder *unwinder) {
 free(line);\
 return;
 
+/**
+ *
+ * Start the user interface.
+ *
+ * @param h the handle containing information about the target process
+ * @param unwinder the stack unwinder of the target process
+ */
 void start_ui(handle_t *h, StackUnwinder *unwinder) {
 //    printf("starting ui....\n");
     char *line = NULL;
@@ -260,6 +292,13 @@ void start_ui(handle_t *h, StackUnwinder *unwinder) {
     free(line);
 }
 
+/**
+ *
+ * Set a breakpoint in the target process at a specified address
+ *
+ * @param addr the address to set the breakpoint at
+ * @param record_regs whether to record the current register state
+ */
 void set_breakpoint_at_addr(void *addr, bool record_regs) {
 // Read the 8 bytes at addr
     long orig;
@@ -280,6 +319,14 @@ void set_breakpoint_at_addr(void *addr, bool record_regs) {
 }
 
 //Only intended to be called after a breakpoint hit
+/**
+ *
+ * Only intended to be called after a breakpoint hit. Reset the breakpoint at a specified address.
+ *
+ * @param addr the address at which the breakpoint is to be reset
+ * @param h the handle_t that contains information about the target process
+ * @param refresh_regs whether to refresh the register state
+ */
 void reset_breakpoint(void *addr, handle_t *h, bool refresh_regs) {
     printf("resetting breakpoint at: %p\n", addr);
     auto backup = break_point_map.find(addr);
@@ -308,6 +355,14 @@ free(response);\
 start_ui(h, unwinder);\
 return;
 
+
+/**
+ *
+ * Handling a segfault.
+ *
+ * @param h the handle_t that contains information about the target process
+ * @param unwinder the stack unwinder of the target process
+ */
 void handle_segfault(handle_t *h, StackUnwinder *unwinder) {
 
     fprintf(stderr, "Would you like to insert a checkpoint (y/n) ");

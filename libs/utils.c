@@ -7,13 +7,6 @@
 
 #include "utils.h"
 
-/*
- * get_filename_from_path()
- *
- * Given an absolute path to a file, return the pointer to the start of the
- * filename in the path
- *
- */
 char *get_filename_from_path(char *filePath) {
   char *currPtr = filePath;
   while (*filePath != '\0') {
@@ -25,25 +18,9 @@ char *get_filename_from_path(char *filePath) {
   return currPtr;
 }
 
-/*
- * findProcessByName()
- *
- * Given the name of a process, try to find its PID by searching through /proc
- * and reading /proc/[pid]/exe until we find a process whose name matches the
- * given process.
- *
- * args:
- * - char* processName: name of the process whose pid to find
- *
- * returns:
- * - a pid_t containing the pid of the process (or -1 if not found)
- *
- */
-
 pid_t findProcessByName(char* processName)
 {
-    if(processName == NULL)
-    {
+    if(processName == NULL) {
         return -1;
     }
 
@@ -51,10 +28,8 @@ pid_t findProcessByName(char* processName)
 
     DIR *directory = opendir("/proc/");
 
-    if (directory)
-    {
-        while ((procDirs = readdir(directory)) != NULL)
-        {
+    if (directory) {
+        while ((procDirs = readdir(directory)) != NULL) {
             if (procDirs->d_type != DT_DIR)
                 continue;
 
@@ -63,8 +38,7 @@ pid_t findProcessByName(char* processName)
             int exePathLen = 10 + strlen(procDirs->d_name) + 1;
             char* exePath = (char *)malloc(exePathLen * sizeof(char));
 
-            if(exePath == NULL)
-            {
+            if(exePath == NULL) {
                 continue;
             }
 
@@ -72,15 +46,13 @@ pid_t findProcessByName(char* processName)
             exePath[exePathLen-1] = '\0';
 
             char* exeBuf = (char *)malloc(PATH_MAX * sizeof(char));
-            if(exeBuf == NULL)
-            {
+            if(exeBuf == NULL) {
                 free(exePath);
                 continue;
             }
             ssize_t len = readlink(exePath, exeBuf, PATH_MAX - 1);
 
-            if(len == -1)
-            {
+            if(len == -1) {
                 free(exePath);
                 free(exeBuf);
                 continue;
@@ -90,14 +62,12 @@ pid_t findProcessByName(char* processName)
 
             char* exeName = NULL;
             char* exeToken = strtok(exeBuf, "/");
-            while(exeToken)
-            {
+            while(exeToken) {
                 exeName = exeToken;
                 exeToken = strtok(NULL, "/");
             }
 
-            if(strcmp(exeName, processName) == 0)
-            {
+            if(strcmp(exeName, processName) == 0) {
                 free(exePath);
 //                if (exeNameBuf) {
 //                    *exeNameBuf = exeBuf;
@@ -118,21 +88,6 @@ pid_t findProcessByName(char* processName)
 
     return -1;
 }
-
-/*
- * freespaceaddr()
- *
- * Search the target process' /proc/pid/maps entry and find an executable
- * region of memory that we can use to run code in.
- *
- * args:
- * - pid_t pid: pid of process to inspect
- *
- * returns:
- * - a long containing the address of an executable region of memory inside the
- *   specified process' address space.
- *
- */
 
 long freespaceaddr(pid_t pid)
 {
@@ -158,20 +113,6 @@ long freespaceaddr(pid_t pid)
     return addr;
 }
 
-/*
- * getlibcaddr()
- *
- * Gets the base address of libc.so inside a process by reading /proc/pid/maps.
- *
- * args:
- * - pid_t pid: the pid of the process whose libc.so base address we should
- *   find
- *
- * returns:
- * - a long containing the base address of libc.so inside that process
- *
- */
-
 long getlibcaddr(pid_t pid)
 {
     FILE *fp;
@@ -193,23 +134,6 @@ long getlibcaddr(pid_t pid)
     fclose(fp);
     return addr;
 }
-
-/*
- * checkloaded()
- *
- * Given a process ID and the name of a shared library, check whether that
- * process has loaded the shared library by reading entries in its
- * /proc/[pid]/maps file.
- *
- * args:
- * - pid_t pid: the pid of the process to check
- * - char* libname: the library to search /proc/[pid]/maps for
- *
- * returns:
- * - an void * pointer point to the address of the dynamically linked function
- * - a NULL is returned if the library is not found;
- *
- */
 
 void * checkloaded(pid_t pid, char* libname, char *symbol)
 {
@@ -234,50 +158,12 @@ void * checkloaded(pid_t pid, char* libname, char *symbol)
     return NULL;
 }
 
-/*
- * getFunctionAddress()
- *
- * Find the address of a function within our own loaded copy of libc.so.
- *
- * args:
- * - char* funcName: name of the function whose address we want to find
- *
- * returns:
- * - a long containing the address of that function
- *
- */
-
 long getFunctionAddress(char* funcName)
 {
     void* self = dlopen("libc.so.6", RTLD_LAZY);
     void* funcAddr = dlsym(self, funcName);
     return (long)funcAddr;
 }
-
-/*
- * findRet()
- *
- * Starting at an address somewhere after the end of a function, search for the
- * "ret" instruction that ends it. We do this by searching for a 0xc3 byte, and
- * assuming that it represents that function's "ret" instruction. This should
- * be a safe assumption. Function addresses are word-aligned, and so there's
- * usually extra space at the end of a function. This space is always padded
- * with "nop"s, so we'll end up just searching through a series of "nop"s
- * before finding our "ret". In other words, it's unlikely that we'll run into
- * a 0xc3 byte that corresponds to anything other than an actual "ret"
- * instruction.
- *
- * Note that this function only applies to x86 and x86_64, and not ARM.
- *
- * args:
- * - void* endAddr: the ending address of the function whose final "ret"
- *   instruction we want to find
- *
- * returns:
- * - an unsigned char* pointing to the address of the final "ret" instruction
- *   of the specified function
- *
- */
 
 unsigned char* findRet(void* endAddr)
 {
@@ -288,16 +174,6 @@ unsigned char* findRet(void* endAddr)
     }
     return retInstAddr;
 }
-
-/*
- * usage()
- *
- * Print program usage and exit.
- *
- * args:
- * - char* name: the name of the executable we're running out of
- *
- */
 
 void usage(char* name)
 {

@@ -4,7 +4,6 @@
 #include "hot_swap.hpp"
 
 /**
- * injectSharedLibrary()
  *
  * This is the code that will actually be injected into the target process.
  * This code is responsible for loading the shared library into the target
@@ -388,8 +387,7 @@ int pdlclose(pid_t target, void *targetLibHandle, long targetDlcloseAddr) {
     unsigned long long dlclose_ret = dlclose_regs.rax;
 
     int retval = 0;
-    if(dlclose_ret != 0)
-    {
+    if(dlclose_ret != 0) {
         fprintf(stderr, "dlclose() failed\n");
         retval = 1;
     }

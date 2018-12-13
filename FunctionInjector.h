@@ -44,12 +44,52 @@ private:
 
 
 public:
+
+    /**
+     * Construct a function injector from pid and tempdir.
+     *
+     * @param pid the target process to inject
+     * @param tempdir the temporary directory to store the compiled files
+     */
     FunctionInjector(pid_t pid, char *tempdir);
     ~FunctionInjector();
 
+    /**
+     * Assigning a source file to the function injector for it later to compile a function in.
+     *
+     * @param srcFilePath the absolute path of the source file
+     */
     void assign_source(char *srcFilePath);
+
+    /**
+     *
+     * Compile a function found in the source file assigned to the injector earlier.
+     *
+     * @param funcname the name of the function to compile
+     * @return
+     */
     char *compile_func(char *funcname);
-    int inject_func(char *funcname, target_process_state type);
+
+    /**
+     *
+     * Perform function injection!!!!!! (Including using ptrace and everything!)
+     *
+     * @param funcname the name of the function to inject.
+     * @param state the state of the target process, either RUNNING or STOPPED.
+     * (Right, we need to deal with the two situations separately.)
+     * @return 0 for success, otherwise a error ocurred.
+     */
+    int inject_func(char *funcname, target_process_state state);
+
+    /**
+     *
+     * Perform function injection without calling ptrace, if the user has already called ptrace.
+     *
+     * @param funcname the name of the function to inject.
+     * @param state the state of the target process, either RUNNING or STOPPED.
+     * (Right, we need to deal with the two situations separately.)
+     * @return 0 for success, otherwise a error ocurred.
+     */
     int inject_func_under_ptrace(char *funcname, target_process_state type);
 };
 
